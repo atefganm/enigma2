@@ -73,6 +73,16 @@ jobs:
         make
         sudo make install
         popd
+        echo "installing libsigc++-3"
+        pushd .
+        cd /tmp
+        git clone --depth 1 https://github.com/dbus-cxx/libsigc--3.0.git
+        cd libsigc--3.0
+        autoreconf -i
+        ./configure
+        make
+        sudo make install
+        popd
     - name: patch enigma cpp files
       run: |
         sed -i 's/eFatal/eDebug/g' lib/gdi/gfbdc.cpp
