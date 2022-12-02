@@ -1,8 +1,7 @@
 from hashlib import md5
-from os import R_OK, access, listdir, walk
+from os import R_OK, access
 from os.path import exists as fileAccess, isdir, isfile, join as pathjoin
 from re import findall
-from subprocess import PIPE, Popen
 
 from enigma import Misc_Options, eDVBCIInterfaces, eDVBResourceManager, eGetEnigmaDebugLvl
 from Tools.Directories import SCOPE_PLUGINS, SCOPE_LIBDIR, SCOPE_SKIN, fileCheck, fileReadLine, fileReadLines, resolveFilename, fileExists, fileHas, fileReadLine, pathExists
