@@ -19,6 +19,8 @@ from enigma import eTimer, eLabel, eConsoleAppContainer, getDesktop, eGetEnigmaD
 from Components.GUIComponent import GUIComponent
 from skin import applySkinFactor, parameters, parseScale
 
+from time import strftime
+
 import os
 import glob
 
@@ -36,7 +38,9 @@ class About(Screen):
 		AboutText += _("CPU: ") + cpu + "\n"
 		AboutText += _("Image: ") + about.getImageTypeString() + "\n"
 		AboutText += _("Build date: ") + about.getBuildDateString() + "\n"
-		AboutText += _("Last update: ") + about.getUpdateDateString() + "\n"
+		ImageVersion = _("Last update: ") + about.getImageVersionString()
+		self["ImageVersion"] = StaticText(ImageVersion)
+		AboutText += ImageVersion + "\n"
 
 		# [WanWizard] Removed until we find a reliable way to determine the installation date
 		# AboutText += _("Installed: ") + about.getFlashDateString() + "\n"
@@ -55,26 +59,11 @@ class About(Screen):
 
 		AboutText += _("DVB driver version: ") + about.getDriverInstalledDate() + "\n"
 
-		GStreamerVersion = about.getGStreamerVersionString().replace("GStreamer", "")
-		self["GStreamerVersion"] = StaticText(GStreamerVersion)
+		AboutText += _("GStreamer version: ") + about.getGStreamerVersionString() + "\n"
 
-		ffmpegVersion = about.getffmpegVersionString()
-		self["ffmpegVersion"] = StaticText(ffmpegVersion)
+		AboutText += _("FFmpeg version: ") + about.getffmpegVersionString() + "\n"
 
-		player = None
-		if cpu.upper().startswith('HI') or os.path.isdir('/proc/hisi'):
-			if os.path.isdir("/usr/lib/hisilicon") and glob.glob("/usr/lib/hisilicon/libavcodec.so.*"):
-				player = _("Media player") + ": ffmpeg, " + _("Hardware Accelerated")
-			elif ffmpegVersion and ffmpegVersion[0].isdigit():
-				player = _("Media player") + ": ffmpeg, " + _("version") + " " + ffmpegVersion
-
-		if player is None:
-			if GStreamerVersion:
-				player = _("Media player") + ": Gstreamer, " + _("version") + " " + GStreamerVersion
-			else:
-				player = _("Media player") + ": " + _("Not Installed")
-
-		AboutText += player + "\n"
+		AboutText += _("OpenSSL version: ") + about.getOpenSSLVersion() + "\n"
 
 		AboutText += _("Python version: ") + about.getPythonVersionString() + "\n"
 
