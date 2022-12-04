@@ -1,7 +1,10 @@
 from Components.config import config, ConfigSlider, ConfigSelection, ConfigYesNo, ConfigEnableDisable, ConfigSubsection, ConfigBoolean, ConfigSelectionNumber, ConfigNothing, NoSave
 from enigma import eAVSwitch, eDVBVolumecontrol, getDesktop
 from Components.SystemInfo import SystemInfo
+from Tools.HardwareInfo import HardwareInfo
 import os
+
+model = HardwareInfo().get_device_model()
 
 
 class AVSwitch:
