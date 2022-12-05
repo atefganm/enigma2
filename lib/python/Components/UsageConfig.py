@@ -529,6 +529,49 @@ def InitUsageConfig():
 	config.usage.keytrans = ConfigText(default=keytranslation)
 	config.usage.alternative_imagefeed = ConfigText(default="", fixed_size=False)
 
+	config.crash = ConfigSubsection()
+	#// handle python crashes
+	config.crash.bsodpython = ConfigYesNo(default=True)
+	config.crash.bsodpython_ready = NoSave(ConfigYesNo(default=False))
+	choicelist = [("0", _("never")), ("1", "1"), ("2", "2"), ("3", "3"), ("4", "4"), ("5", "5"), ("6", "6"), ("7", "7"), ("8", "8"), ("9", "9"), ("10", "10")]
+	config.crash.bsodhide = ConfigSelection(default="0", choices=choicelist)
+	config.crash.bsodmax = ConfigSelection(default="3", choices=choicelist)
+	#//
+
+	config.crash.enabledebug = ConfigYesNo(default=False)
+	config.crash.debugloglimit = ConfigSelectionNumber(min=1, max=10, stepwidth=1, default=4, wraparound=True)
+	config.crash.daysloglimit = ConfigSelectionNumber(min=1, max=30, stepwidth=1, default=8, wraparound=True)
+	config.crash.sizeloglimit = ConfigSelectionNumber(min=1, max=20, stepwidth=1, default=10, wraparound=True)
+	config.crash.lastfulljobtrashtime = ConfigInteger(default=-1)
+
+	debugPath = [('/home/root/logs/', '/home/root/')]
+	for p in harddiskmanager.getMountedPartitions():
+		if exists(p.mountpoint):
+			d = normpath(p.mountpoint)
+			if p.mountpoint != '/':
+				debugPath.append((p.mountpoint + '/logs/', d))
+	config.crash.debugPath = ConfigSelection(default="/home/root/logs/", choices=debugPath)
+	if not exists("/home"):
+		os.mkdir("/home", 0o755)
+	if not exists("/home/root"):
+		os.mkdir("/home/root", 0o755)
+
+	def updatedebugPath(configElement):
+		if not exists(config.crash.debugPath.value):
+			try:
+				os.mkdir(config.crash.debugPath.value, 0o755)
+			except:
+				print("Failed to create log path: %s" % config.crash.debugPath.value)
+	config.crash.debugPath.addNotifier(updatedebugPath, immediate_feedback=False)
+
+	crashlogheader = _("We are really sorry. Your receiver encountered "
+					 "a software problem, and needs to be restarted.\n"
+					 "Please send the logfile %senigma2_crash_xxxxxx.log to https://github.com/atefganm/enigma2.\n"
+					 "Your receiver restarts in 10 seconds!\n"
+					 "Component: enigma2") % config.crash.debugPath.value
+	config.crash.debug_text = ConfigText(default=crashlogheader, fixed_size=False)
+	config.crash.skin_error_crash = ConfigYesNo(default=True)
+
 	config.seek = ConfigSubsection()
 	config.seek.selfdefined_13 = ConfigNumber(default=15)
 	config.seek.selfdefined_46 = ConfigNumber(default=60)
@@ -806,6 +849,15 @@ def InitUsageConfig():
 
 	config.misc.softcam_setup = ConfigSubsection()
 	config.misc.softcam_setup.extension_menu = ConfigYesNo(default=True)
+
+	config.logmanager = ConfigSubsection()
+	config.logmanager.showinextensions = ConfigYesNo(default=False)
+	config.logmanager.user = ConfigText(default='', fixed_size=False)
+	config.logmanager.useremail = ConfigText(default='', fixed_size=False)
+	config.logmanager.usersendcopy = ConfigYesNo(default=True)
+	config.logmanager.path = ConfigText(default="/")
+	config.logmanager.additionalinfo = NoSave(ConfigText(default=""))
+	config.logmanager.sentfiles = ConfigLocations(default='')
 
 	config.ntp = ConfigSubsection()
 
