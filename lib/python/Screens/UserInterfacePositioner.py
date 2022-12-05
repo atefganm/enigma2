@@ -12,9 +12,7 @@ from os import access, R_OK
 
 
 def getFilePath(setting):
-		return "/proc/stb/vmpeg/0/dst_%s" % (setting)
-	else:
-		return "/proc/stb/fb/dst_%s" % (setting)
+	return "/proc/stb/vmpeg/0/dst_%s" % (setting)
 
 # ensure test on SystemInfo["CanChangeOsdPosition"] before calling this
 def setPositionParameter(parameter, configElement):
