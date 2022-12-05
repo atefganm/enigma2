@@ -9,20 +9,23 @@ from Components.Label import Label
 from Tools.Directories import fileExists
 from enigma import getDesktop
 from os import access, R_OK
+from boxbranding import getBoxType, getBrandOEM
 
 
 def getFilePath(setting):
-	return "/proc/stb/vmpeg/0/dst_%s" % (setting)
+	if getBrandOEM() in ('dreambox'):
+		return "/proc/stb/vmpeg/0/dst_%s" % (setting)
+	else:
+		return "/proc/stb/fb/dst_%s" % (setting)
 
-
+# ensure test on SystemInfo["CanChangeOsdPosition"] before calling this
 def setPositionParameter(parameter, configElement):
 	f = open(getFilePath(parameter), "w")
-	f.write('%08X\n' % int(configElement.value))
+	f.write('%X' % configElement.value)
 	f.close()
-	if fileExists(getFilePath("apply")):
-		f = open(getFilePath("apply"), "w")
-		f.write('1')
-		f.close()
+	f = open(getFilePath("apply"), "w")
+	f.write('1')
+	f.close()
 
 
 def InitOsd():
