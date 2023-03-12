@@ -109,7 +109,7 @@ class Pager(GUIAddon):
 	def applySkin(self, desktop, parent):
 		attribs = [ ]
 		for (attrib, value) in self.skinAttributes:
-				if attrib == "picPage":
+			if attrib == "picPage":
 				pic = LoadPixmap(resolveFilename(SCOPE_GUISKIN, value))
 				if pic:
 					self.picDotPage = pic
