@@ -1,19 +1,21 @@
 from Components.Addons.GUIAddon import GUIAddon
 
 from enigma import eListbox, eListboxPythonMultiContent, BT_ALIGN_CENTER
-from Tools.LoadPixmap import LoadPixmap
 
-from Tools.Directories import resolveFilename, SCOPE_GUISKIN
+from skin import parseScale
+
 from Components.MultiContent import MultiContentEntryPixmapAlphaBlend
 
+from Tools.Directories import resolveFilename, SCOPE_GUISKIN
+from Tools.LoadPixmap import LoadPixmap
 
 class Pager(GUIAddon):
 	def __init__(self):
 		GUIAddon.__init__(self)
-		self.itemHeight = 25
 		self.l = eListboxPythonMultiContent()
 		self.l.setBuildFunc(self.buildEntry)
-		self.l.setItemHeight(self.itemHeight)
+		self.l.setItemHeight(25)
+		self.spacing = 5
 		self.l.setFont(1, gFont('Regular', 18))
 		self.l.setFont(2, gFont('Regular', 22))
 		self.l.setFont(3, gFont('Regular', 22))
@@ -52,7 +54,7 @@ class Pager(GUIAddon):
 								size=(pixd_width, pixd_height),
 								png=self.picDotCurPage if x == currentPage else self.picDotPage,
 								backcolor=None, backcolor_sel=None, flags=BT_ALIGN_CENTER))
-					xPos += pixd_width + 5
+					xPos += pixd_width + self.spacing
 		return res
 
 	def selChange(self, currentPage, pagesCount):
@@ -104,7 +106,7 @@ class Pager(GUIAddon):
 
 	def applySkin(self, desktop, parent):
 		attribs = [ ]
-		for (attrib, value) in self.skinAttributes:
+		for (attrib, value) in self.skinAttributes[:]:
 			if attrib == "picPage":
 				pic = LoadPixmap(resolveFilename(SCOPE_GUISKIN, value))
 				if pic:
@@ -113,6 +115,10 @@ class Pager(GUIAddon):
 				pic = LoadPixmap(resolveFilename(SCOPE_GUISKIN, value))
 				if pic:
 					self.picDotCurPage = pic
+			elif attrib == "itemHeight":
+				self.l.setItemHeight(parseScale(value))
+			elif attrib == "spacing":
+				self.spacing = parseScale(value)
 			else:
 				attribs.append((attrib, value))
 		self.skinAttributes = attribs
