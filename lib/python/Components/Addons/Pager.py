@@ -128,5 +128,3 @@ class Pager(GUIAddon):
 				attribs.append((attrib, value))
 		self.skinAttributes = attribs
 		return GUIAddon.applySkin(self, desktop, parent)
-
-	
