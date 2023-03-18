@@ -51,7 +51,7 @@ jobs:
         make
         sudo make install
         popd
-        echo "installing libsigc++-3"
+        echo installing libsigc++3
         pushd .
         cd /tmp
         git clone --depth 1 https://github.com/dbus-cxx/libsigc--3.0.git
