@@ -9,6 +9,7 @@ from Components.MultiContent import MultiContentEntryPixmapAlphaBlend
 from Tools.Directories import resolveFilename, SCOPE_GUISKIN
 from Tools.LoadPixmap import LoadPixmap
 
+
 class Pager(GUIAddon):
 	def __init__(self):
 		GUIAddon.__init__(self)
@@ -16,11 +17,6 @@ class Pager(GUIAddon):
 		self.l.setBuildFunc(self.buildEntry)
 		self.l.setItemHeight(25)
 		self.spacing = 5
-		self.l.setFont(1, gFont('Regular', 18))
-		self.l.setFont(2, gFont('Regular', 22))
-		self.l.setFont(3, gFont('Regular', 22))
-		self.l.setFont(4, gFont('Regular', 22))
-		self.l.setFont(5, gFont('Regular', 22))
 		self.picDotPage = LoadPixmap(resolveFilename(SCOPE_GUISKIN, "icons/dot.png"))
 		self.picDotCurPage = LoadPixmap(resolveFilename(SCOPE_GUISKIN, "icons/dotfull.png"))
 		self.showIcons = "showAll" # can be "showAll", "onlyFirst", "onlyLast"
@@ -91,9 +87,9 @@ class Pager(GUIAddon):
 	def getSourceSize(self):
 		if self.source.__class__.__name__ == "List": # Components.Sources.List, used by MainMenu
 			return self.source.master.master.instance.size()
-		return self.source.instance.size(
+		return self.source.instance.size()
 
- 	def getListCount(self):
+	def getListCount(self):
 		if hasattr(self.source, 'listCount'):
 			return self.source.listCount
 		elif hasattr(self.source, 'list'):
