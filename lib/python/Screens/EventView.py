@@ -5,12 +5,10 @@ from Components.ActionMap import ActionMap
 from Components.Label import Label
 from Components.ScrollLabel import ScrollLabel
 from Components.PluginComponent import plugins
-from Components.TimerList import TimerList
 from Components.UsageConfig import preferredTimerPath, dropEPGNewLines, replaceEPGSeparator
 from Components.Sources.ServiceEvent import ServiceEvent
 from Components.Sources.StaticText import StaticText
 from Components.Sources.Event import Event
-from Components.Button import Button
 from enigma import eEPGCache, eTimer, eServiceReference
 from RecordTimer import RecordTimerEntry, parseEvent, AFTEREVENT, createRecordTimerEntry
 from Screens.TimerEntry import TimerEntry
@@ -39,10 +37,7 @@ class EventViewBase:
 		self["datetime"] = Label()
 		self["channel"] = Label()
 		self["duration"] = Label()
-		if self['Event'] == StaticText:
-			self["key_red"] = StaticText("")
-		else:
-			self["key_red"] = Button("")
+		self["key_red"] = StaticText("")
 		if similarEPGCB is not None:
 			self.SimilarBroadcastTimer = eTimer()
 			self.SimilarBroadcastTimer.callback.append(self.getSimilarEvents)
@@ -50,21 +45,11 @@ class EventViewBase:
 			self.SimilarBroadcastTimer = None
 		self.key_green_choice = self.ADD_TIMER
 		if self.isRecording:
-			if self["Event"] == StaticText:
-				self["key_green"] = StaticText("")
-			else:
-				self["key_green"] = Button("")
+			self["key_green"] = StaticText("")
 		else:
-			if self["Event"] == StaticText:
-				self["key_green"] = StaticText(_("Add timer"))
-			else:
-				self["key_green"] = Button(_("Add timer"))
-		if self["Event"] == StaticText:
-			self["key_yellow"] = StaticText("")
-			self["key_blue"] = StaticText("")
-		else:
-			self["key_yellow"] = Button("")
-			self["key_blue"] = Button("")
+			self["key_green"] = StaticText(_("Add timer"))
+		self["key_yellow"] = StaticText("")
+		self["key_blue"] = StaticText("")
 		self["actions"] = ActionMap(["OkCancelActions", "EventViewActions"],
 			{
 				"cancel": self.close,
@@ -75,8 +60,9 @@ class EventViewBase:
 				"nextEvent": self.nextEvent,
 				"timerAdd": self.timerAdd,
 				"openSimilarList": self.openSimilarList,
+				"openPartialList": self.open_partial_list,
 				"contextMenu": self.doContext,
-			})
+			}, 1)
 		if parent and hasattr(parent, "fallbackTimer"):
 			self.fallbackTimer = parent.fallbackTimer
 			self.onLayoutFinish.append(self.onCreate)
@@ -312,7 +298,9 @@ class EventViewBase:
 			descr.setText(descr.getText() + text)
 			descr = self["FullDescription"]
 			descr.setText(descr.getText() + text)
-			self["key_red"].setText(_("Similar"))
+			self["key_red"].text = _("Similar")
+		if not self["key_yellow"].text:
+			self["key_yellow"].text = _("Partial")
 
 	def openSimilarList(self):
 		if self.similarEPGCB is not None and self["key_red"].getText():
@@ -320,6 +308,12 @@ class EventViewBase:
 			refstr = str(self.currentService)
 			if id is not None:
 				self.similarEPGCB(id, refstr)
+
+	def open_partial_list(self):
+		if self.similarEPGCB:
+			event = self.event and self.event.getEventName()
+			if event:
+				self.similarEPGCB(event, None)
 
 	def doContext(self):
 		if self.event:
