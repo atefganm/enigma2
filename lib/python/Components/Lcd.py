@@ -3,7 +3,6 @@ from enigma import eDBoxLCD
 from Components.SystemInfo import SystemInfo
 from Screens.InfoBar import InfoBar
 from Screens.Screen import Screen
-from Tools.HardwareInfo import HardwareInfo
 
 
 class dummyScreen(Screen):
@@ -29,7 +28,7 @@ class LCD:
 
 	def setContrast(self, value):
 		value *= 63
-		value /= 20
+		value //= 20
 		if value > 63:
 			value = 63
 		eDBoxLCD.getInstance().setLCDContrast(value)
@@ -81,10 +80,7 @@ def InitLcd():
 			config.lcd.contrast.addNotifier(setLCDcontrast)
 		else:
 			config.lcd.contrast = ConfigNothing()
-			if HardwareInfo().get_device_model() in ('dm900', 'dm920'):
-				standby_default = 4
-			else:
-				standby_default = 1
+			standby_default = 1
 
 		config.lcd.standby = ConfigSlider(default=standby_default, limits=(0, 10))
 		config.lcd.standby.addNotifier(setLCDbright)
