@@ -9,8 +9,6 @@ SystemInfo = {}
 
 from Tools.Multiboot import getMultibootStartupDevice, getMultibootslots  # This import needs to be here to avoid a SystemInfo load loop!
 
-boxtype = getBoxType()
-
 # Parse the boot commandline.
 #
 with open("/proc/cmdline", "r") as fd:
