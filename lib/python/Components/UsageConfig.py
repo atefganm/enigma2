@@ -75,9 +75,6 @@ def InitUsageConfig():
 	for i in range(1, 12):
 		choicelist.append((str(i), ngettext("%d second", "%d seconds", i) % i))
 	config.usage.infobar_timeout = ConfigSelection(default="5", choices=choicelist)
-	config.usage.fadeout = ConfigYesNo(default=True)
-	config.usage.show_infobar_do_dimming = ConfigYesNo(default=False)
-	config.usage.show_infobar_dimming_speed = ConfigSelectionNumber(min=1, max=40, stepwidth=1, default=40, wraparound=True)
 	config.usage.show_infobar_on_zap = ConfigYesNo(default=True)
 	config.usage.show_infobar_on_skip = ConfigYesNo(default=True)
 	config.usage.show_infobar_on_event_change = ConfigYesNo(default=False)
@@ -600,17 +597,6 @@ def InitUsageConfig():
 			choicelist.append((str(i)))
 		config.usage.vfd_final_scroll_delay = ConfigSelection(default="1000", choices=choicelist)
 		config.usage.vfd_final_scroll_delay.addNotifier(final_scroll_delay, immediate_feedback=False)
-
-	if SystemInfo["CanSyncMode"]:
-		def setSyncMode(configElement):
-			print("[UsageConfig] Read /proc/stb/video/sync_mode")
-			open("/proc/stb/video/sync_mode", "w").write(configElement.value)
-		config.av.sync_mode = ConfigSelection(default="slow", choices={
-			"slow": _("Slow motion"),
-			"hold": _("Hold first frame"),
-			"black": _("Black screen")
-		})
-		config.av.sync_mode.addNotifier(setSyncMode)
 
 	config.subtitles = ConfigSubsection()
 	config.subtitles.show = ConfigYesNo(default=True)
