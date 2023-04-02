@@ -2,11 +2,11 @@ name: Enigma2 CI
 
 on:
   push:
-    branches: [ develop, release-8.3 ]
+    branches: [ develop ]
     paths-ignore:
       - '**/README'
   pull_request:
-    branches: [ develop, release-8.3 ]
+    branches: [ develop ]
     paths-ignore:
       - '**/README'
 
