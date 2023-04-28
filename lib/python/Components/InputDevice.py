@@ -1,12 +1,17 @@
 from Components.config import config, ConfigSlider, ConfigSubsection, ConfigYesNo, ConfigText, ConfigInteger
-from Components.SystemInfo import SystemInfo
+from Components.Console import Console
+from Components.SystemInfo import BoxInfo, SystemInfo
+from Tools.Directories import SCOPE_KEYMAPS, SCOPE_SKIN, fileReadLine, fileWriteLine, fileReadLines, fileReadXML, resolveFilename, pathExists
 from fcntl import ioctl
-import os
+from os import O_NONBLOCK, O_RDWR, close as osclose, listdir, open as osopen, write as oswrite
 import struct
 import platform
 
 from platform import machine
 
+MODULE_NAME = __name__.split(".")[-1]
+
+REMOTE_MODEL = 0
 
 def EVIOCGNAME(length):
 	# From include/uapi/asm-generic/ioctl.h and asm-generic/ioctl.h for HAVE_OLDE2_API
