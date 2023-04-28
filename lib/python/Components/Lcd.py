@@ -4,6 +4,9 @@ from Components.SystemInfo import SystemInfo
 from Screens.InfoBar import InfoBar
 from Screens.Screen import Screen
 from Tools.HardwareInfo import HardwareInfo
+from enigma import getBoxType
+
+model = getBoxType()
 
 
 class dummyScreen(Screen):
