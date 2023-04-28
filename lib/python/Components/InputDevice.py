@@ -4,10 +4,12 @@ from Components.SystemInfo import BoxInfo, SystemInfo
 from Tools.Directories import SCOPE_KEYMAPS, SCOPE_SKIN, fileReadLine, fileWriteLine, fileReadLines, fileReadXML, resolveFilename, pathExists
 from fcntl import ioctl
 from os import O_NONBLOCK, O_RDWR, close as osclose, listdir, open as osopen, write as oswrite
+from os.path import isdir, isfile
 import struct
 import platform
 
 from platform import machine
+from six import ensure_str
 
 MODULE_NAME = __name__.split(".")[-1]
 
