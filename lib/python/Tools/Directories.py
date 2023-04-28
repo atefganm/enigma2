@@ -1,13 +1,22 @@
 # -*- coding: utf-8 -*-
 import errno
+from inspect import stack
 import os
-
-from enigma import eEnv
+from os import F_OK, R_OK, W_OK, access, chmod, listdir, makedirs, mkdir, readlink, rename, rmdir, sep, stat, statvfs, symlink, utime, walk
+from os.path import isdir, isfile, join as pathjoin
+from enigma import eEnv, getDesktop, eGetEnigmaDebugLvl
+from errno import ENOENT, EXDEV
 from re import compile, split
+from six import PY2
 from stat import S_IMODE
 from sys import _getframe as getframe
 from unicodedata import normalize
+from traceback import print_exc
+from xml.etree.cElementTree import ParseError, fromstring, parse
 
+DEFAULT_MODULE_NAME = __name__.split(".")[-1]
+
+forceDebug = eGetEnigmaDebugLvl() > 4
 pathExists = os.path.exists
 
 SCOPE_HOME = 0  # DEBUG: Not currently used in Enigma2.
@@ -319,10 +328,34 @@ def fileExists(f, mode="r"):
 		acc_mode = os.F_OK
 	return os.access(f, acc_mode)
 
+def fileAccess(file, mode="r"):
+	accMode = F_OK
+	if "r" in mode:
+		accMode |= R_OK
+	if "w" in mode:
+		accMode |= W_OK
+	result = False
+	try:
+		result = access(file, accMode)
+	except (IOError, OSError) as err:
+		print("[Directories] Error %d: Couldn't determine file '%s' access mode! (%s)" % (err.errno, file, err.strerror))
+	return result
 
 def fileCheck(f, mode="r"):
 	return fileExists(f, mode) and f
 
+def fileExists(file, mode="r"):
+	return fileAccess(file, mode) and file
+
+def fileContains(file, content, mode="r"):
+	result = False
+	if fileExists(file, mode):
+		fd = open(file, mode)
+		text = fd.read()
+		fd.close()
+		if content in text:
+			result = True
+	return result
 
 def fileHas(f, content, mode="r"):
 	result = False
@@ -333,6 +366,108 @@ def fileHas(f, content, mode="r"):
 		if content in text:
 			result = True
 	return result
+
+
+def fileReadLine(filename, default=None, source=DEFAULT_MODULE_NAME, debug=False):
+	line = None
+	try:
+		with open(filename, "r") as fd:
+			line = fd.read().strip()
+		msg = "Read"
+	except (IOError, OSError) as err:
+		if err.errno != ENOENT:  # ENOENT - No such file or directory.
+			print("[%s] Error %d: Unable to read a line from file '%s'! (%s)" % (source, err.errno, filename, err.strerror))
+		line = default
+		msg = "Default"
+	if debug or forceDebug:
+		print("[%s] Line %d: %s '%s' from file '%s'." % (source, stack()[1][0].f_lineno, msg, line, filename))
+	return line
+
+
+def fileWriteLine(filename, line, source=DEFAULT_MODULE_NAME, debug=False):
+	try:
+		with open(filename, "w") as fd:
+			fd.write(str(line))
+		msg = "Wrote"
+		result = 1
+	except (IOError, OSError) as err:
+		print("[%s] Error %d: Unable to write a line to file '%s'! (%s)" % (source, err.errno, filename, err.strerror))
+		msg = "Failed to write"
+		result = 0
+	if debug or forceDebug:
+		print("[%s] Line %d: %s '%s' to file '%s'." % (source, stack()[1][0].f_lineno, msg, line, filename))
+	return result
+
+
+def fileReadLines(filename, default=None, source=DEFAULT_MODULE_NAME, debug=False):
+	lines = None
+	try:
+		with open(filename, "r") as fd:
+			lines = fd.read().splitlines()
+		msg = "Read"
+	except (IOError, OSError) as err:
+		if err.errno != ENOENT:  # ENOENT - No such file or directory.
+			print("[%s] Error %d: Unable to read lines from file '%s'! (%s)" % (source, err.errno, filename, err.strerror))
+		lines = default
+		msg = "Default"
+	if debug or forceDebug:
+		length = len(lines) if lines else 0
+		print("[%s] Line %d: %s %d lines from file '%s'." % (source, stack()[1][0].f_lineno, msg, length, filename))
+	return lines
+
+
+def fileWriteLines(filename, lines, source=DEFAULT_MODULE_NAME, debug=False):
+	try:
+		with open(filename, "w") as fd:
+			if isinstance(lines, list):
+				lines.append("")
+				lines = "\n".join(lines)
+			fd.write(lines)
+		msg = "Wrote"
+		result = 1
+	except (IOError, OSError) as err:
+		print("[%s] Error %d: Unable to write %d lines to file '%s'! (%s)" % (source, err.errno, len(lines), filename, err.strerror))
+		msg = "Failed to write"
+		result = 0
+	if debug or forceDebug:
+		print("[%s] Line %d: %s %d lines to file '%s'." % (source, stack()[1][0].f_lineno, msg, len(lines), filename))
+	return result
+
+
+def fileReadXML(filename, default=None, source=DEFAULT_MODULE_NAME, debug=False):
+	dom = None
+	try:
+		with open(filename, "r") as fd:  # This open gets around a possible file handle leak in Python's XML parser.
+			try:
+				dom = parse(fd).getroot()
+				msg = "Read"
+			except ParseError as err:
+				fd.seek(0)
+				content = fd.readlines()
+				line, column = err.position
+				print("[%s] XML Parse Error: '%s' in '%s'!" % (source, err, filename))
+				data = content[line - 1].replace("\t", " ").rstrip()
+				print("[%s] XML Parse Error: '%s'" % (source, data))
+				print("[%s] XML Parse Error: '%s^%s'" % (source, "-" * column, " " * (len(data) - column - 1)))
+			except Exception as err:
+				print("[%s] Error: Unable to parse data in '%s' - '%s'!" % (source, filename, err))
+	except (IOError, OSError) as err:
+		if err.errno == ENOENT:  # ENOENT - No such file or directory.
+			print("[%s] Warning: File '%s' does not exist!" % (source, filename))
+		else:
+			print("[%s] Error %d: Opening file '%s'! (%s)" % (source, err.errno, filename, err.strerror))
+	except Exception as err:
+		print("[%s] Error: Unexpected error opening/parsing file '%s'! (%s)" % (source, filename, err))
+		print_exc()
+	if dom is None:
+		if default:
+			dom = fromstring(default)
+			msg = "Default"
+		else:
+			msg = "Failed to read"
+	if debug or forceDebug:
+		print("[%s] Line %d: %s from XML file '%s'." % (source, stack()[1][0].f_lineno, msg, filename))
+	return dom
 
 
 def getRecordingFilename(basename, dirname=None):
@@ -524,8 +659,7 @@ def getExtension(file):
 
 def mediafilesInUse(session):
 	from Components.MovieList import KNOWN_EXTENSIONS
-	TRANSMISSION_PART = fileExists("/usr/bin/transmission-daemon") and os.popen("pidof transmission-daemon").read() and ".part" or "N/A"
-	files = [os.path.basename(x[2]) for x in lsof() if getExtension(x[2]) in (KNOWN_EXTENSIONS, TRANSMISSION_PART)]
+	files = [os.path.basename(x[2]) for x in lsof() if getExtension(x[2]) in KNOWN_EXTENSIONS]
 	service = session.nav.getCurrentlyPlayingServiceOrGroup()
 	filename = service and service.getPath()
 	if filename:
@@ -544,10 +678,18 @@ def mediafilesInUse(session):
 def shellquote(s):
 	return "'%s'" % s.replace("'", "'\\''")
 
+def isPluginInstalled(pluginName, pluginFile="plugin", pluginType=None):
+	path, flags = defaultPaths.get(SCOPE_PLUGINS)
+	for type in [x for x in listdir(path) if isdir(pathjoin(path, x))]:
+		for extension in ["o", "c", ""]:
+			if isfile(pathjoin(path, type, pluginName, "%s.py%s" % (pluginFile, extension))):
+				if pluginType and type != pluginType:
+					continue
+				return True
+	return False
 
 def sanitizeFilename(filename):
 	"""Return a fairly safe version of the filename.
-
 	We don't limit ourselves to ascii, because we want to keep municipality
 	names, etc, but we do want to get rid of anything potentially harmful,
 	and make sure we do not exceed Windows filename length limits.
