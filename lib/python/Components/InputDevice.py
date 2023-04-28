@@ -1,24 +1,16 @@
 from Components.config import config, ConfigSlider, ConfigSubsection, ConfigYesNo, ConfigText, ConfigInteger
-from Components.Console import Console
-from Components.SystemInfo import BoxInfo, SystemInfo
-from Tools.Directories import SCOPE_KEYMAPS, SCOPE_SKIN, fileReadLine, fileWriteLine, fileReadLines, fileReadXML, resolveFilename, pathExists
+from Components.SystemInfo import SystemInfo
 from fcntl import ioctl
-from os import O_NONBLOCK, O_RDWR, close as osclose, listdir, open as osopen, write as oswrite
 import os
 import struct
 import platform
 
-from platform import machine
-
-# From include/uapi/asm-generic/ioctl.h and asm-generic/ioctl.h for HAVE_OLDE2_API
+# include/uapi/asm-generic/ioctl.h
 IOC_NRBITS = 8
 IOC_TYPEBITS = 8
-	if SystemInfo["OLDE2API"]:
-		IOC_SIZEBITS = 13
-		IOC_DIRBITS = 3
-	else:
-		IOC_SIZEBITS = 13 if "mips" in machine() else 14
-		IOC_DIRBITS = 3 if "mips" in platform.machine() else 2
+IOC_SIZEBITS = 13 if "mips" in platform.machine() else 14
+IOC_DIRBITS = 3 if "mips" in platform.machine() else 2
+
 IOC_NRSHIFT = 0
 IOC_TYPESHIFT = IOC_NRSHIFT + IOC_NRBITS
 IOC_SIZESHIFT = IOC_TYPESHIFT + IOC_TYPEBITS
