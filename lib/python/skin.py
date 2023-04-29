@@ -1,6 +1,8 @@
+from __future__ import division
 import errno
 import xml.etree.ElementTree
 
+import six
 from enigma import addFont, eLabel, ePixmap, ePoint, eRect, eSize, eWindow, eWindowStyleManager, eWindowStyleSkinned, getDesktop, gFont, getFontFaces, gRGB, BT_ALPHATEST, BT_ALPHABLEND
 from os.path import basename, dirname, isfile
 
@@ -12,10 +14,12 @@ from Tools.Directories import SCOPE_CONFIG, SCOPE_CURRENT_LCDSKIN, SCOPE_CURRENT
 from Tools.Import import my_import
 from Tools.LoadPixmap import LoadPixmap
 
-DEFAULT_SKIN = SystemInfo["HasFullHDSkinSupport"] and "PLi-FullNightHD/skin.xml" or "PLi-HD/skin.xml"  # SD hardware is no longer supported by the default skin.
+DEFAULT_SKIN = "GigabluePaxV2/skin.xml"
+# DEFAULT_SKIN = SystemInfo["HasFullHDSkinSupport"] and "PLi-FullNightHD/skin.xml" or "PLi-HD/skin.xml"  # SD hardware is no longer supported by the default skin.
 EMERGENCY_SKIN = "skin_default/skin.xml"
 EMERGENCY_NAME = "Stone II"
-DEFAULT_DISPLAY_SKIN = "skin_default/skin_display.xml"
+DEFAULT_DISPLAY_SKIN = "lcd_skin/skin_lcd_default.xml" if isfile(resolveFilename(SCOPE_SKIN, "display/lcd_skin/skin_lcd_default.xml")) else "skin_default/skin_display.xml"
+DEFAULT_CLOCK_SKIN = "lcd_skin/clock_lcd_analog.xml"
 USER_SKIN = "skin_user.xml"
 USER_SKIN_TEMPLATE = "skin_user_%s.xml"
 SUBTITLE_SKIN = "skin_subtitles.xml"
@@ -49,9 +53,11 @@ if not isfile(skin):
 	DEFAULT_SKIN = EMERGENCY_SKIN
 config.skin.primary_skin = ConfigText(default=DEFAULT_SKIN)
 config.skin.display_skin = ConfigText(default=DEFAULT_DISPLAY_SKIN)
+config.skin.clock_skin = ConfigText(default=DEFAULT_CLOCK_SKIN)
 
 currentPrimarySkin = None
 currentDisplaySkin = None
+currentClockSkin = None
 callbacks = []
 runCallbacks = False
 
@@ -70,7 +76,7 @@ runCallbacks = False
 
 
 def InitSkins():
-	global currentPrimarySkin, currentDisplaySkin
+	global currentPrimarySkin, currentDisplaySkin, currentClockSkin
 	runCallbacks = False
 	# Add the emergency skin.  This skin should provide enough functionality
 	# to enable basic GUI functions to work.
@@ -87,6 +93,16 @@ def InitSkins():
 			currentDisplaySkin = config.skin.display_skin.value
 			break
 		print("[Skin] Error: Adding %s display skin '%s' has failed!" % (name, config.skin.display_skin.value))
+		result.append(skin)
+	result = []
+	for skin, name in [(config.skin.clock_skin.value, "current"), (DEFAULT_CLOCK_SKIN, "default")]:
+		if skin in result:  # Don't try to add a skin that has already failed.
+			continue
+		config.skin.clock_skin.value = skin
+		if loadSkin(config.skin.clock_skin.value, scope=SCOPE_CURRENT_LCDSKIN, desktop=getDesktop(DISPLAY_SKIN_ID), screenID=DISPLAY_SKIN_ID):
+			currentClockSkin = config.skin.clock_skin.value
+			break
+		print("[Skin] Error: Adding %s display skin '%s' has failed!" % (name, config.skin.clock_skin.value))
 		result.append(skin)
 	# Add the main GUI skin.
 	result = []
@@ -330,21 +346,21 @@ def parseFont(s, scale=((1, 1), (1, 1))):
 				size = int(eval(size))
 			except Exception as err:
 				print("[Skin] %s '%s': font size formula '%s', processed to '%s', cannot be evaluated!" % (type(err).__name__, err, orig, s))
-				size = 0
+				size = None
 	else:
 		name = s
-		size = 0
+		size = None
 	try:
 		f = fonts[name]
 		name = f[0]
-		size = f[1] if size == 0 else size
+		size = f[1] if size is None else size
 	except KeyError:
 		if name not in getFontFaces():
 			f = fonts["Body"]
 			print("[Skin] Error: Font '%s' (in '%s') is not defined!  Using 'Body' font ('%s') instead." % (name, s, f[0]))
 			name = f[0]
-			size = f[1] if size == 0 else size
-	return gFont(name, size * scale[0][0] // scale[0][1])
+			size = f[1] if size is None else size
+	return gFont(name, int(size) * scale[0][0] // scale[0][1])
 
 
 def parseColor(s):
@@ -393,7 +409,7 @@ def loadPixmap(path, desktop, width=0, height=0):
 	option = path.find("#")
 	if option != -1:
 		path = path[:option]
-	if basename(path) in ("rc.png", "rc0.png", "rc1.png", "rc2.png", "oldrc.png"):
+	if not rc_model.rcIsDefault() and basename(path) in ("rc.png", "rc0.png", "rc1.png", "rc2.png", "oldrc.png"):
 		path = rc_model.getRcImg()
 	pixmap = LoadPixmap(path, desktop, None, width, height)
 	if pixmap is None:
@@ -417,18 +433,18 @@ def collectAttributes(skinAttributes, node, context, skinPath=None, ignore=(), f
 			# listbox; when the scrollbar setting is applied after the size, a scrollbar
 			# will not be shown until the selection moves for the first time.
 			if attrib == "size":
-				size = value
+				size = six.ensure_str(value)
 			elif attrib == "position":
-				pos = value
+				pos = six.ensure_str(value)
 			elif attrib == "font":
-				font = value
+				font = six.ensure_str(value)
 				skinAttributes.append((attrib, font))
 			else:
-				skinAttributes.append((attrib, value))
-	if pos is not None:
+				skinAttributes.append((attrib, six.ensure_str(value)))
+	if pos != None:
 		pos, size = context.parse(pos, size, font)
 		skinAttributes.append(("position", pos))
-	if size is not None:
+	if size != None:
 		skinAttributes.append(("size", size))
 
 
@@ -502,9 +518,6 @@ class AttributeParser:
 
 	def itemHeight(self, value):
 		self.guiObject.setItemHeight(parseScale(value))
-	
-	def itemWidth(self, value):
-		self.guiObject.setItemWidth(parseScale(value))
 
 	def pixmap(self, value):
 		if value.endswith(".svg"): # if graphic is svg force alphatest to "blend"
@@ -543,7 +556,7 @@ class AttributeParser:
 		value = 1 if value.lower() in ("1", "enabled", "on", "scale", "true", "yes") else 0
 		self.guiObject.setScale(value)
 
-	def orientation(self, value):  # Used by eSlider and eListBox.
+	def orientation(self, value):  # Used by eSlider.
 		try:
 			self.guiObject.setOrientation(*{
 				"orVertical": (self.guiObject.orVertical, False),
@@ -712,7 +725,7 @@ def loadSingleSkinData(desktop, screenID, domSkin, pathSkin, scope=SCOPE_CURRENT
 	global colors, fonts, menus, parameters, setups, switchPixmap
 	for tag in domSkin.findall("output"):
 		scrnID = int(tag.attrib.get("id", GUI_SKIN_ID))
-		if scrnID == GUI_SKIN_ID:
+		if screenID == GUI_SKIN_ID:
 			for res in tag.findall("resolution"):
 				xres = res.attrib.get("xres")
 				xres = int(xres) if xres else 720
@@ -769,10 +782,10 @@ def loadSingleSkinData(desktop, screenID, domSkin, pathSkin, scope=SCOPE_CURRENT
 				parameters["PartnerBoxE2TimerIconRepeat"] = applySkinFactor(510, 30, 20, 20)
 				parameters["PartnerBoxE2TimerState"] = applySkinFactor(150, 50, 150, 20)
 				parameters["PartnerBoxE2TimerTime"] = applySkinFactor(0, 50, 150, 20)
-				parameters["PartnerBoxEntryListName"] = applySkinFactor(5, 0, 150, 20)
-				parameters["PartnerBoxEntryListIP"] = applySkinFactor(120, 0, 150, 20)
-				parameters["PartnerBoxEntryListPort"] = applySkinFactor(270, 0, 100, 20)
-				parameters["PartnerBoxEntryListType"] = applySkinFactor(410, 0, 100, 20)
+				parameters["PartnerBoxEntryListName"] = applySkinFactor(5, 0, 150, 25)
+				parameters["PartnerBoxEntryListIP"] = applySkinFactor(120, 0, 150, 25)
+				parameters["PartnerBoxEntryListPort"] = applySkinFactor(270, 0, 100, 25)
+				parameters["PartnerBoxEntryListType"] = applySkinFactor(410, 0, 100, 25)
 				parameters["PartnerBoxTimerName"] = applySkinFactor(0, 30, 20)
 				parameters["PartnerBoxTimerServicename"] = applySkinFactor(0, 0, 30)
 				parameters["SHOUTcastListItem"] = applySkinFactor(20, 18, 22, 69, 20, 23, 43, 22)
@@ -971,10 +984,10 @@ class SkinContext:
 				self.x, self.y = pos
 				self.w, self.h = size
 			else:
-				self.x = 0
-				self.y = 0
-				self.w = 0
-				self.h = 0
+				self.x = None
+				self.y = None
+				self.w = None
+				self.h = None
 
 	def __str__(self):
 		return "Context (%s,%s)+(%s,%s) " % (self.x, self.y, self.w, self.h)
@@ -1103,6 +1116,21 @@ def readSkin(screen, skin, names, desktop):
 	screen.renderer = []
 	usedComponents = set()
 
+	def processConstant(constant_widget, context):
+		wname = constant_widget.attrib.get("name")
+		if wname:
+			try:
+				cwvalue = constantWidgets[wname]
+			except KeyError:
+				raise SkinError("Given constant-widget '%s' not found in skin" % wname)
+		if cwvalue:
+			for x in cwvalue:
+				myScreen.append((x))
+		try:
+			myScreen.remove(constant_widget)
+		except ValueError:
+			pass
+
 	def processNone(widget, context):
 		pass
 
@@ -1194,15 +1222,11 @@ def readSkin(screen, skin, names, desktop):
 				addonClass = my_import(".".join(("Components", "Addons", wclass))).__dict__.get(wclass)
 			except ImportError:
 				raise SkinError("GUI Addon '%s' not found" % wclass)
-			
+
 			if not wconnection:
 				raise SkinError("The widget is from addon type: %s , but no connection is specified." % wclass)
-			
-			i = 0
-			wclassname_base = name + "_" + wclass + "_" + wconnection + "_"
-			while wclassname_base + str(i) in usedComponents:
-				i += 1
-			wclassname = wclassname_base + str(i)
+
+			wclassname = name + "_" + wclass + "_" + wconnection #form a name for the GUI Addon so to be possible to be inited in screen
 
 			usedComponents.add(wclassname)
 
@@ -1238,6 +1262,8 @@ def readSkin(screen, skin, names, desktop):
 		screen.additionalWidgets.append(w)
 
 	def processScreen(widget, context):
+		for w in widget.findall('constant-widget'):
+			processConstant(w, context)
 		for w in widget:
 			conditional = w.attrib.get("conditional")
 			if conditional and not [i for i in conditional.split(",") if i in screen.keys()]:
