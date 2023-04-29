@@ -69,7 +69,7 @@ public:
 	RESULT setBufferSize(int size);
 	RESULT start(const eDVBSectionFilterMask &mask);
 	RESULT stop();
-	RESULT connectRead(const sigc::slot<void(const uint8_t*)> &read, ePtr<eConnection> &conn);
+	RESULT connectRead(const sigc::slot1<void,const uint8_t*> &read, ePtr<eConnection> &conn);
 };
 
 class eDVBPESReader: public iDVBPESReader, public sigc::trackable
@@ -184,6 +184,7 @@ private:
 	eDVBRecordFileThread *m_thread;
 	std::string m_target_filename;
 	int m_packetsize;
+	friend class eRTSPStreamClient;
 };
 
 #endif

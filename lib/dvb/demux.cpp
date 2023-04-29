@@ -26,7 +26,7 @@ enum dmx_source {
 	DMX_SOURCE_FRONT1,
 	DMX_SOURCE_FRONT2,
 	DMX_SOURCE_FRONT3,
-	DMX_SOURCE_DVR0   = 16,
+	DMX_SOURCE_DVR0 = 16,
 	DMX_SOURCE_DVR1,
 	DMX_SOURCE_DVR2,
 	DMX_SOURCE_DVR3
@@ -34,10 +34,11 @@ enum dmx_source {
 #define DMX_SET_SOURCE _IOW('o', 49, enum dmx_source)
 #endif
 
+
 //#define SHOW_WRITE_TIME
 static int determineBufferCount()
 {
-	struct sysinfo si = {};
+	struct sysinfo si;
 	if (sysinfo(&si) != 0)
 	{
 		return 6; // Default to small
@@ -76,7 +77,7 @@ eDVBDemux::~eDVBDemux()
 
 int eDVBDemux::openDemux(void)
 {
-	char filename[32] = {};
+	char filename[32];
 	snprintf(filename, sizeof(filename), "/dev/dvb/adapter%d/demux%d", adapter, demux);
 	eDebug("[eDVBDemux] open demux %s", filename);
 	return ::open(filename, O_RDWR | O_CLOEXEC);
@@ -112,6 +113,13 @@ RESULT eDVBDemux::setSourcePVR(int pvrnum)
 	if (fd < 0) return -1;
 	int n = m_dvr_source_offset + pvrnum;
 	int res = ::ioctl(fd, DMX_SET_SOURCE, &n);
+	if (res && pvrnum)
+	{
+		eDebug("[eDVBDemux] DMX_SET_SOURCE dvr%d failed: %m falling back to dvr0", pvrnum);
+		pvrnum = 0;
+		n = m_dvr_source_offset + pvrnum;
+		res = ::ioctl(fd, DMX_SET_SOURCE, &n);
+	}
 	if (res)
 		eDebug("[eDVBDemux] DMX_SET_SOURCE dvr%d failed: %m", pvrnum);
 	source = -1;
@@ -138,7 +146,7 @@ RESULT eDVBDemux::createPESReader(eMainloop *context, ePtr<iDVBPESReader> &reade
 	return res;
 }
 
-RESULT eDVBDemux::createTSRecorder(ePtr<iDVBTSRecorder> &recorder, int packetsize, bool streaming)
+RESULT eDVBDemux::createTSRecorder(ePtr<iDVBTSRecorder> &recorder, unsigned int packetsize, bool streaming)
 {
 	if (m_dvr_busy)
 		return -EBUSY;
@@ -159,7 +167,7 @@ RESULT eDVBDemux::getSTC(pts_t &pts, int num)
 	if (fd < 0)
 		return -ENODEV;
 
-	struct dmx_stc stc = {};
+	struct dmx_stc stc;
 	stc.num = num;
 	stc.base = 1;
 
@@ -194,7 +202,7 @@ RESULT eDVBDemux::connectEvent(const sigc::slot1<void,int> &event, ePtr<eConnect
 
 void eDVBSectionReader::data(int)
 {
-	uint8_t data[4096] = {}; // max. section size
+	uint8_t data[4096]; // max. section size
 	int r;
 	r = ::read(fd, data, 4096);
 	if(r < 0)
@@ -259,7 +267,8 @@ RESULT eDVBSectionReader::start(const eDVBSectionFilterMask &mask)
 	eDebug("[eDVBSectionReader] DMX_SET_FILTER pid=%d", mask.pid);
 	notifier->start();
 
-	dmx_sct_filter_params sct = {};
+	dmx_sct_filter_params sct;
+	memset(&sct, 0, sizeof(sct));
 	sct.pid     = mask.pid;
 	sct.timeout = 0;
 	sct.flags   = DMX_IMMEDIATE_START;
@@ -306,7 +315,7 @@ void eDVBPESReader::data(int)
 {
 	while (1)
 	{
-		uint8_t buffer[16384] = {};
+		uint8_t buffer[16384];
 		int r;
 		r = ::read(m_fd, buffer, 16384);
 		if (!r)
@@ -371,7 +380,9 @@ RESULT eDVBPESReader::start(int pid)
 	eDebug("[eDVBPESReader] DMX_SET_PES_FILTER pid=%04x", pid);
 	m_notifier->start();
 
-	dmx_pes_filter_params flt = {};
+	dmx_pes_filter_params flt;
+	memset(&flt, 0, sizeof(flt));
+
 	flt.pes_type = DMX_PES_OTHER;
 	flt.pid     = pid;
 	flt.input   = DMX_IN_FRONTEND;
@@ -474,8 +485,12 @@ int eDVBRecordFileThread::AsyncIO::wait()
 {
 	if (aio.aio_buf != NULL) // Only if we had a request outstanding
 	{
-		while (aio_error(&aio) == EINPROGRESS)
+		int res;
+		while (1)
 		{
+			res = aio_error(&aio);
+			if (res != EINPROGRESS)
+				break;
 			eDebug("[eDVBRecordFileThread] Waiting for I/O to complete");
 			struct aiocb* paio = &aio;
 			int r = aio_suspend(&paio, 1, NULL);
@@ -485,10 +500,19 @@ int eDVBRecordFileThread::AsyncIO::wait()
 				return -1;
 			}
 		}
-		int r = aio_return(&aio);
-		aio.aio_buf = NULL;
-		if (r < 0)
+		if (res == 0 || res == ECANCELED)
 		{
+			__ssize_t r = aio_return(&aio);
+			aio.aio_buf = NULL;
+			if (r < 0)
+			{
+				eWarning("[eDVBRecordFileThread] wait: aio_return returned failure: %m");
+				return -1;
+			}
+		}
+		else //res > 0
+		{
+			aio.aio_buf = NULL;
 			eWarning("[eDVBRecordFileThread] wait: aio_return returned failure: %m");
 			return -1;
 		}
@@ -509,17 +533,28 @@ int eDVBRecordFileThread::AsyncIO::poll()
 {
 	if (aio.aio_buf == NULL)
 		return 0;
-	if (aio_error(&aio) == EINPROGRESS)
+	int res = aio_error(&aio);
+	if (res == EINPROGRESS)
 	{
 		return 1;
 	}
-	int r = aio_return(&aio);
-	aio.aio_buf = NULL;
-	if (r < 0)
+	else if (res > 0)
 	{
-		eWarning("[eDVBRecordFileThread] poll: aio_return returned failure: %d %m", r);
+		aio.aio_buf = NULL;
+		eWarning("[eDVBRecordFileThread] poll: aio_return returned failure: %m");
 		return -1;
 	}
+	else if (res == 0 || res == ECANCELED)
+	{
+		__ssize_t r = aio_return(&aio);
+		aio.aio_buf = NULL;
+		if (r < 0)
+		{
+			eDebug("[eDVBRecordFileThread] wait: aio_return returned failure: %m");
+			return -1;
+		}
+	}
+	aio.aio_buf = NULL;
 	return 0;
 }
 
@@ -536,13 +571,13 @@ int eDVBRecordFileThread::AsyncIO::start(int fd, off_t offset, size_t nbytes, vo
 int eDVBRecordFileThread::asyncWrite(int len)
 {
 #ifdef SHOW_WRITE_TIME
-	struct timeval starttime = {};
-	struct timeval now = {};
+	struct timeval starttime;
+	struct timeval now;
 	suseconds_t diff;
 	gettimeofday(&starttime, NULL);
 #endif
-
-	m_ts_parser.parseData(m_current_offset, m_buffer, len);
+	if(!getProtocol())
+		m_ts_parser.parseData(m_current_offset, m_buffer, len);
 
 #ifdef SHOW_WRITE_TIME
 	gettimeofday(&now, NULL);
@@ -600,7 +635,7 @@ int eDVBRecordFileThread::writeData(int len)
 {
 	if(m_sync_mode)
 	{
-		struct pollfd pfd = {};
+		struct pollfd pfd;
 
 		pfd.fd = m_fd_dest;
 		pfd.events = POLLOUT;
@@ -674,7 +709,7 @@ int eDVBRecordStreamThread::writeData(int len)
 {
 	if(m_sync_mode)
 	{
-		struct pollfd pfd = {};
+		struct pollfd pfd;
 
 		pfd.fd = m_fd_dest;
 		pfd.events = POLLOUT;
@@ -795,7 +830,11 @@ RESULT eDVBTSRecorder::start()
 	char filename[128];
 	snprintf(filename, 128, "/dev/dvb/adapter%d/demux%d", m_demux->adapter, m_demux->demux);
 
+#if HAVE_HISILICON
+	m_source_fd = ::open(filename, O_RDONLY | O_CLOEXEC | O_NONBLOCK);
+#else
 	m_source_fd = ::open(filename, O_RDONLY | O_CLOEXEC);
+#endif
 
 	if (m_source_fd < 0)
 	{
@@ -805,7 +844,9 @@ RESULT eDVBTSRecorder::start()
 
 	setBufferSize(1024*1024);
 
-	dmx_pes_filter_params flt = {};
+	dmx_pes_filter_params flt;
+	memset(&flt, 0, sizeof(flt));
+
 	flt.pes_type = DMX_PES_OTHER;
 	flt.output  = DMX_OUT_TSDEMUX_TAP;
 	flt.pid     = i->first;
