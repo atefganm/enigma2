@@ -86,7 +86,7 @@ public:
 		DICTION,                     // current "diction" (0 = normal, 1 = Unicable, 2 = JESS)
 		NUM_DATA_ENTRIES
 	};
-	sigc::signal<void(iDVBFrontend*)> m_stateChanged;
+	sigc::signal1<void,iDVBFrontend*> m_stateChanged;
 private:
 	DECLARE_REF(eDVBFrontend);
 	bool m_simulate;
@@ -150,7 +150,7 @@ public:
 	RESULT prepare_cable(const eDVBFrontendParametersCable &);
 	RESULT prepare_terrestrial(const eDVBFrontendParametersTerrestrial &);
 	RESULT prepare_atsc(const eDVBFrontendParametersATSC &);
-	RESULT connectStateChange(const sigc::slot<void(iDVBFrontend*)> &stateChange, ePtr<eConnection> &connection);
+	RESULT connectStateChange(const sigc::slot1<void,iDVBFrontend*> &stateChange, ePtr<eConnection> &connection);
 	RESULT getState(int &state);
 	RESULT setTone(int tone);
 	RESULT setVoltage(int voltage);
