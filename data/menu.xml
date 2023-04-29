@@ -59,6 +59,7 @@
 				<id val="expert"/>
 				<item level="0" entryID="accesslevel_setup"><setup id="accesslevel"/></item>
 				<item level="0" entryID="recording_setup"><setup id="recording"/></item>
+				<item entryID="hdmirecord_setup" level="0" text="HDMI-IN Recording settings" weight="15" requires="HDMIin"><setup id="HDMIRecord"/></item>
 
 					<menu level="0" text="Harddisk" entryID="hardisk_selection" requires="Harddisk">
 					<id val="harddisk"/>
