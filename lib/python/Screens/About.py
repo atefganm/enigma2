@@ -56,20 +56,27 @@ class About(Screen):
 
 		AboutText += _("DVB driver version: ") + about.getDriverInstalledDate() + "\n"
 
-		#GStreamerVersion = _("Media player: GStreamer, version ") + about.getGStreamerVersionString().replace("GStreamer", "")
-		#self["GStreamerVersion"] = StaticText(GStreamerVersion)
-		AboutText += _("GStreamer version: ") + about.getGStreamerVersionString() + "\n"
+		GStreamerVersion = about.getGStreamerVersionString().replace("GStreamer", "")
+		self["GStreamerVersion"] = StaticText(GStreamerVersion)
 
-		#ffmpegVersion = _("Media player: ffmpeg, version ") + about.getffmpegVersionString()
-		#self["ffmpegVersion"] = StaticText(ffmpegVersion)
-		AboutText += _("FFmpeg version: ") + about.getffmpegVersionString() + "\n"
+		ffmpegVersion = about.getffmpegVersionString()
+		self["ffmpegVersion"] = StaticText(ffmpegVersion)
 
-		#if cpu.upper().startswith('HI') or os.path.isdir('/proc/hisi'):
-		#	AboutText += ffmpegVersion + "\n"
-		#else:
-		#	AboutText += GStreamerVersion + "\n"
+		player = None
 
-		AboutText += _("OpenSSL version: ") + about.getOpenSSLVersion() + "\n"
+		if os.path.isfile('/var/lib/opkg/info/enigma2-plugin-systemplugins-servicemp3.list'):
+			if GStreamerVersion:
+				player = _("Media player") + ": Gstreamer, " + _("version") + " " + GStreamerVersion
+		if os.path.isfile('/var/lib/opkg/info/enigma2-plugin-systemplugins-servicehisilicon.list'):
+			if os.path.isdir("/usr/lib/hisilicon") and glob.glob("/usr/lib/hisilicon/libavcodec.so.*"):
+				player = _("Media player") + ": ffmpeg, " + _("Hardware Accelerated")
+			elif ffmpegVersion and ffmpegVersion[0].isdigit():
+				player = _("Media player") + ": ffmpeg, " + _("version") + " " + ffmpegVersion
+
+		if player is None:
+				player = _("Media player") + ": " + _("Not Installed")
+
+		AboutText += player + "\n"
 
 		AboutText += _("Python version: ") + about.getPythonVersionString() + "\n"
 
