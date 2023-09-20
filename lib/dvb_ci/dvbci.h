@@ -48,6 +48,7 @@ class eDVBCISlot: public iObject, public sigc::trackable
 	int slotid;
 	int fd;
 	ePtr<eSocketNotifier> notifier;
+	ePtr<eTimer> startup_timeout;
 	int state;
 	int m_ci_version;
 	std::map<uint16_t, uint8_t> running_services;
@@ -88,8 +89,6 @@ class eDVBCISlot: public iObject, public sigc::trackable
 	void determineCIVersion();
 	int setEnabled(bool);
 	static std::string getTunerLetter(int tuner_no) { return std::string(1, char(65 + tuner_no)); }
-	static std::string getTunerLetterDM(int);
-	static char* readInputCI(int);
 public:
 	enum {stateRemoved, stateInserted, stateInvalid, stateResetted, stateDisabled};
 	enum {versionUnknown = -1, versionCI = 0, versionCIPlus1 = 1, versionCIPlus2 = 2};
