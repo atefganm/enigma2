@@ -268,7 +268,6 @@ void gFBDC::setResolution(int xres, int yres, int bpp)
 	surface_back.clut = surface.clut;
 
 	m_pixmap = new gPixmap(&surface);
-
 #ifdef CONFIG_ION
 	if (grc)
 		grc->unlock();
