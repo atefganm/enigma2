@@ -3,6 +3,7 @@ import os
 import time
 import re
 from Tools.HardwareInfo import HardwareInfo
+from SystemInfo import SystemInfo
 from sys import maxsize, modules, version_info
 
 
@@ -144,6 +145,9 @@ def getCPUInfoString():
 		return "%s %s %s (%s)" % (processor, cpu_speed, freq, ngettext("%d core", "%d cores", cpu_count) % cpu_count)
 	except:
 		return _("undefined")
+
+def getDVBAPI():
+	return _("Old") if SystemInfo["OLDE2API"]: else _("New")
 
 
 def getDriverInstalledDate():
