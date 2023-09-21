@@ -146,8 +146,12 @@ def getCPUInfoString():
 	except:
 		return _("undefined")
 
+
 def getDVBAPI():
-	return _("Old") if SystemInfo["OLDE2API"]: else _("New")
+	if SystemInfo["OLDE2API"]:
+		return _("Old") 
+	else:
+		return _("New")
 
 
 def getDriverInstalledDate():
