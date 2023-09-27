@@ -171,7 +171,7 @@ def getDriverInstalledDate():
 			if HardwareInfo().get_device_name() =="dm8000":
 				driver = [x.split("-")[-2:-1][0][-9:] for x in open(glob("/var/lib/opkg/info/*-dvb-modules-*.control")[0], "r") if x.startswith("Version:")][0]
 			else:
-			driver = [x.split("-")[-2] for x in open(glob("/var/lib/opkg/info/*-dvb-modules-*.control")[0], "r") if x.startswith("Version:")][0]
+				driver = [x.split("-")[-2] for x in open(glob("/var/lib/opkg/info/*-dvb-modules-*.control")[0], "r") if x.startswith("Version:")][0]
 			return "%s-%s-%s" % (driver[:4], driver[4:6], driver[6:])
 		except:
 			try:
