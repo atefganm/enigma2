@@ -66,7 +66,7 @@ def getGStreamerVersionString():
 	try:
 		from glob import glob
 		gst = [x.split("Version: ") for x in open(glob("/var/lib/opkg/info/gstreamer[0-9].[0-9].control")[0], "r") if x.startswith("Version:")][0]
-		return "%s" % gst[1].split("+")[0].replace("\n", "")
+		return "%s" % gst[1].split("+")[0].split("-")[0].replace("\n", "")
 	except:
 		return ""
 
@@ -75,7 +75,7 @@ def getffmpegVersionString():
 	try:
 		from glob import glob
 		ffmpeg = [x.split("Version: ") for x in open(glob("/var/lib/opkg/info/ffmpeg.control")[0], "r") if x.startswith("Version:")][0]
-		return "%s" % ffmpeg[1].split("+")[0].replace("\n", "")
+		return "%s" % ffmpeg[1].split("-")[0].replace("\n", "")
 	except:
 		return ""
 
@@ -168,10 +168,7 @@ def getDriverInstalledDate():
 	try:
 		from glob import glob
 		try:
-			if HardwareInfo().get_device_name() =="dm8000":
-				driver = [x.split("-")[-2:-1][0][-9:] for x in open(glob("/var/lib/opkg/info/*-dvb-modules-*.control")[0], "r") if x.startswith("Version:")][0]
-			else:
-				driver = [x.split("-") for x in open(glob("/var/lib/opkg/info/*-dvb-modules-*.control")[0], "r") if x.startswith("Version:")][0]
+			driver = [x.split("-") for x in open(glob("/var/lib/opkg/info/*-dvb-modules-*.control")[0], "r") if x.startswith("Version:")][0]
 			if len(driver) == 2:
 				driver = driver[0].split('+')
 			return "%s-%s-%s" % (driver[1][:4], driver[1][4:6], driver[1][6:])
