@@ -1956,7 +1956,7 @@ PyObject *eDVBSatelliteEquipmentControl::getFrequencyRangeList(int slot_no, int 
 	{
 		if (it->m_frontend->getSlotID() == slot_no)
 		{
-			fe_info = ((eDVBFrontend*)it->m_frontend)->getFrontendInfo(SYS_DVBS);
+			fe_info = ((eDVBFrontend*)it->m_frontend)->getFrontendInfo();
 		}
 	}
 
