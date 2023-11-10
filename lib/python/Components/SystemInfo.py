@@ -1,157 +1,18 @@
-from os import R_OK, access, listdir, walk
-from os.path import exists as fileAccess, isdir, isfile, join as pathjoin
-from re import findall
-from subprocess import PIPE, Popen
+import re
 
 from enigma import Misc_Options, eDVBCIInterfaces, eDVBResourceManager, eGetEnigmaDebugLvl
-from Tools.Directories import SCOPE_PLUGINS, SCOPE_SKIN, fileCheck, fileContains, fileReadLine, fileReadLines, resolveFilename, fileExists, fileHas, fileReadLine, pathExists
+from Tools.Directories import SCOPE_PLUGINS, fileCheck, fileExists, fileHas, pathExists, resolveFilename
 from Tools.HardwareInfo import HardwareInfo
 
-MODULE_NAME = __name__.split(".")[-1]
-ENIGMA_KERNEL_MODULE = "enigma.ko"
-PROC_PATH = "/proc/enigma"
-
 SystemInfo = {}
-
-class BoxInformation:  # To maintain data integrity class variables should not be accessed from outside of this class!
-	def __init__(self):
-		self.enigmaList = []
-		self.enigmaInfo = {}
-		self.immutableList = []
-		self.boxInfo = {}
-		self.procList = [file for file in listdir(PROC_PATH) if isfile(pathjoin(PROC_PATH, file))] if isdir(PROC_PATH) else []
-		lines = fileReadLines("/etc/enigma.conf", source=MODULE_NAME)
-		if lines:
-			for line in lines:
-				if line.startswith("#") or line.strip() == "":
-					continue
-				if "=" in line:
-					item, value = [x.strip() for x in line.split("=", 1)]
-					if item:
-						self.enigmaList.append(item)
-						self.enigmaInfo[item] = self.processValue(value)
-			print("[SystemInfo] Enigma config override file available and data loaded into BoxInfo.")
-		for dirpath, dirnames, filenames in walk("/lib/modules"):
-			if ENIGMA_KERNEL_MODULE in filenames:
-				modulePath = pathjoin(dirpath, ENIGMA_KERNEL_MODULE)
-				self.boxInfo["enigmamodule"] = modulePath
-				self.immutableList.append("enigmamodule")
-				break
-		else:
-			modulePath = ""
-		# As the /proc values are static we can save time by using cached
-		# values loaded here.  If the values become dynamic this code
-		# should be disabled and the dynamic code below enabled.
-		if self.procList:
-			for item in self.procList:
-				self.boxInfo[item] = self.processValue(fileReadLine(pathjoin(PROC_PATH, item), source=MODULE_NAME))
-				self.immutableList.append(item)
-			print("[SystemInfo] Enigma kernel module available and data loaded into BoxInfo.")
-		else:
-			process = Popen(("/sbin/modinfo", "-d", modulePath), stdout=PIPE, stderr=PIPE, universal_newlines=True)
-			stdout, stderr = process.communicate()
-			if process.returncode == 0:
-				for line in stdout.split("\n"):
-					if "=" in line:
-						item, value = line.split("=", 1)
-						if item:
-							self.procList.append(item)
-							self.boxInfo[item] = self.processValue(value)
-							self.immutableList.append(item)
-				print("[SystemInfo] Enigma kernel module not available but modinfo data loaded into BoxInfo!")
-			else:
-				print("[SystemInfo] Error: Unable to load Enigma kernel module data!  (Error %d: %s)" % (process.returncode, stderr.strip()))
-		self.enigmaList = sorted(self.enigmaList)
-		self.procList = sorted(self.procList)
-
-	def processValue(self, value):
-		if value is None:
-			pass
-		elif value.startswith("\"") or value.startswith("'") and value.endswith(value[0]):
-			value = value[1:-1]
-		elif value.startswith("(") and value.endswith(")"):
-			data = []
-			for item in [x.strip() for x in value[1:-1].split(",")]:
-				data.append(self.processValue(item))
-			value = tuple(data)
-		elif value.startswith("[") and value.endswith("]"):
-			data = []
-			for item in [x.strip() for x in value[1:-1].split(",")]:
-				data.append(self.processValue(item))
-			value = list(data)
-		elif value.upper() == "NONE":
-			value = None
-		elif value.upper() in ("FALSE", "NO", "OFF", "DISABLED"):
-			value = False
-		elif value.upper() in ("TRUE", "YES", "ON", "ENABLED"):
-			value = True
-		elif value.isdigit() or (value[0:1] == "-" and value[1:].isdigit()):
-			value = int(value)
-		elif value.startswith("0x") or value.startswith("0X"):
-			value = int(value, 16)
-		elif value.startswith("0o") or value.startswith("0O"):
-			value = int(value, 8)
-		elif value.startswith("0b") or value.startswith("0B"):
-			value = int(value, 2)
-		else:
-			try:
-				value = float(value)
-			except ValueError:
-				pass
-		return value
-
-	def getEnigmaList(self):
-		return self.enigmaList
-
-	def getProcList(self):
-		return self.procList
-
-	def getItemsList(self):
-		return sorted(list(self.boxInfo.keys()))
-
-	def getItem(self, item, default=None):
-		if item in self.enigmaList:
-			value = self.enigmaInfo[item]
-		# As the /proc values are static we can save time by uusing cached
-		# values loaded above.  If the values become dynamic this code
-		# should be enabled.
-		# elif item in self.procList:
-		# 	value = self.processValue(fileReadLine(pathjoin(PROC_PATH, item), source=MODULE_NAME))
-		elif item in self.boxInfo:
-			value = self.boxInfo[item]
-		elif item in SystemInfo:
-			value = SystemInfo[item]
-		else:
-			value = default
-		return value
-
-	def setItem(self, item, value, immutable=False):
-		if item in self.immutableList or item in self.procList:
-			print("[BoxInfo] Error: Item '%s' is immutable and can not be %s!" % (item, "changed" if item in self.boxInfo else "added"))
-			return False
-		if immutable:
-			self.immutableList.append(item)
-		self.boxInfo[item] = value
-		SystemInfo[item] = value
-		return True
-
-	def deleteItem(self, item):
-		if item in self.immutableListor or item in self.procList:
-			print("[BoxInfo] Error: Item '%s' is immutable and can not be deleted!" % item)
-		elif item in self.boxInfo:
-			del self.boxInfo[item]
-			return True
-		return False
-
-
-BoxInfo = BoxInformation()
 
 from Tools.Multiboot import getMultibootStartupDevice, getMultibootslots  # This import needs to be here to avoid a SystemInfo load loop!
 
 # Parse the boot commandline.
 #
-cmdline = fileReadLine("/proc/cmdline", source=MODULE_NAME)
-cmdline = {k: v.strip('"') for k, v in findall(r'(\S+)=(".*?"|\S+)', cmdline)}
+with open("/proc/cmdline", "r") as fd:
+	cmdline = fd.read()
+cmdline = {k: v.strip('"') for k, v in re.findall(r'(\S+)=(".*?"|\S+)', cmdline)}
 
 
 def getNumVideoDecoders():
@@ -179,17 +40,8 @@ def getBootdevice():
 		dev = dev[:-1]
 	return dev
 
-def getRCFile(ext):
-	filename = resolveFilename(SCOPE_SKIN, pathjoin("rc_models", "%s.%s" % (BoxInfo.getItem("rcname"), ext)))
-	if not isfile(filename):
-		filename = resolveFilename(SCOPE_SKIN, pathjoin("rc_models", "dmm.%s" % ext))
-	return filename
-
 
 model = HardwareInfo().get_device_model()
-
-BoxInfo.setItem("RCImage", getRCFile("png"))
-BoxInfo.setItem("RCMapping", getRCFile("xml"))
 SystemInfo["InDebugMode"] = eGetEnigmaDebugLvl() >= 4
 SystemInfo["CommonInterface"] = model in ("h9combo", "h9combose", "h10", "pulse4kmini") and 1 or eDVBCIInterfaces.getInstance().getNumOfSlots()
 SystemInfo["CommonInterfaceCIDelay"] = fileCheck("/proc/stb/tsmux/rmx_delay")
@@ -210,7 +62,6 @@ SystemInfo["LCDshow_symbols"] = (model.startswith("et9") or model in ("hd51", "v
 SystemInfo["LCDsymbol_hdd"] = model in ("hd51", "vs1500") and fileCheck("/proc/stb/lcd/symbol_hdd")
 SystemInfo["FrontpanelDisplayGrayscale"] = fileExists("/dev/dbox/oled0")
 SystemInfo["DeepstandbySupport"] = HardwareInfo().get_device_name() != "dm800"
-SystemInfo["OLDE2API"] = model in ("dm800")
 SystemInfo["Fan"] = fileCheck("/proc/stb/fp/fan")
 SystemInfo["FanPWM"] = SystemInfo["Fan"] and fileCheck("/proc/stb/fp/fan_pwm")
 SystemInfo["PowerLED"] = fileCheck("/proc/stb/power/powerled") or model in ("gbue4k", "gbquad4k") and fileCheck("/proc/stb/fp/led1_pattern")
@@ -257,14 +108,11 @@ SystemInfo["HasHDMIpreemphasis"] = fileCheck("/proc/stb/hdmi/preemphasis")
 SystemInfo["HasColorimetry"] = fileCheck("/proc/stb/video/hdmi_colorimetry")
 SystemInfo["HasHdrType"] = fileCheck("/proc/stb/video/hdmi_hdrtype")
 SystemInfo["HasScaler_sharpness"] = pathExists("/proc/stb/vmpeg/0/pep_scaler_sharpness")
-SystemInfo["HasHDMIin"] = model in ('dm7080', 'dm820', 'vuduo4k', 'vuduo4kse', 'vuultimo4k', 'vuuno4kse', 'gbquad4k', 'hd2400', 'et10000')
-SystemInfo["HasHDMIinFHD"] = model in ('dm900', 'dm920', 'dreamone', 'dreamtwo')
-SystemInfo["HDMIin"] = SystemInfo["HasHDMIin"] or SystemInfo["HasHDMIinFHD"]
+SystemInfo["HasHDMIin"] = model in ("vuduo4k", "vuduo4kse", "vuultimo4k", "vuuno4kse", "gbquad4k", "hd2400", "et10000")
 SystemInfo["HasHDMI-CEC"] = HardwareInfo().has_hdmi() and fileExists(resolveFilename(SCOPE_PLUGINS, "SystemPlugins/HdmiCEC/plugin.pyc")) and (fileExists("/dev/cec0") or fileExists("/dev/hdmi_cec") or fileExists("/dev/misc/hdmi_cec0"))
 SystemInfo["HasYPbPr"] = model in ("dm8000", "et5000", "et6000", "et6500", "et9000", "et9200", "et9500", "et10000", "formuler1", "mbtwinplus", "spycat", "vusolo", "vuduo", "vuduo2", "vuultimo")
 SystemInfo["HasScart"] = model in ("dm8000", "et4000", "et6500", "et8000", "et9000", "et9200", "et9500", "et10000", "formuler1", "hd1100", "hd1200", "hd1265", "hd2400", "vusolo", "vusolo2", "vuduo", "vuduo2", "vuultimo", "vuuno", "xp1000")
 SystemInfo["HasSVideo"] = model in ("dm8000")
-SystemInfo["RecoveryMode"] = fileCheck("/proc/stb/fp/boot_mode")
 SystemInfo["HasComposite"] = model not in ("i55", "gbquad4k", "gbue4k", "hd1500", "osnino", "osninoplus", "purehd", "purehdse", "revo4k", "vusolo4k", "vuzero4k", "vuduo4k", "vuduo4kse", "vuuno4k", "vuuno4kse", "vuultimo4k")
 SystemInfo["hasXcoreVFD"] = model in ("osmega", "spycat4k", "spycat4kmini", "spycat4kcombo") and fileCheck("/sys/module/brcmstb_%s/parameters/pt6302_cgram" % model)
 SystemInfo["HasOfflineDecoding"] = model not in ("osmini", "osminiplus", "et7000mini", "et11000", "mbmicro", "mbtwinplus", "mbmicrov2", "et7000", "et8500")
