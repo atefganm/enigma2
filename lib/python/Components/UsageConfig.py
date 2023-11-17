@@ -75,9 +75,6 @@ def InitUsageConfig():
 	for i in range(1, 12):
 		choicelist.append((str(i), ngettext("%d second", "%d seconds", i) % i))
 	config.usage.infobar_timeout = ConfigSelection(default="5", choices=choicelist)
-	config.usage.fadeout = ConfigYesNo(default=True)
-	config.usage.show_infobar_do_dimming = ConfigYesNo(default=False)
-	config.usage.show_infobar_dimming_speed = ConfigSelectionNumber(min=1, max=40, stepwidth=1, default=40, wraparound=True)
 	config.usage.show_infobar_on_zap = ConfigYesNo(default=True)
 	config.usage.show_infobar_on_skip = ConfigYesNo(default=True)
 	config.usage.show_infobar_on_event_change = ConfigYesNo(default=False)
@@ -310,11 +307,6 @@ def InitUsageConfig():
 	config.usage.movielist_unseen = ConfigYesNo(default=False)
 
 	config.usage.swap_snr_on_osd = ConfigYesNo(default=False)
-
-	config.usage.frontled_color = ConfigSelection(default = "2", choices = [("0", _("Off")), ("1", _("Blue")), ("2", _("Red")), ("3", _("Blinking blue")), ("4", _("Blinking red"))])
-	config.usage.frontledrec_color = ConfigSelection(default = "3", choices = [("0", _("Off")), ("1", _("Blue")), ("2", _("Red")), ("3", _("Blinking blue")), ("4", _("Blinking red"))])
-	config.usage.frontledstdby_color = ConfigSelection(default = "0", choices = [("0", _("Off")), ("1", _("Blue")), ("2", _("Red")), ("3", _("Blinking blue")), ("4", _("Blinking red"))])
-	config.usage.frontledrecstdby_color = ConfigSelection(default = "3", choices = [("0", _("Off")), ("1", _("Blue")), ("2", _("Red")), ("3", _("Blinking blue")), ("4", _("Blinking red"))])
 
 	def SpinnerOnOffChanged(configElement):
 		setSpinnerOnOff(int(configElement.value))
@@ -559,12 +551,6 @@ def InitUsageConfig():
 		config.misc.zapmode = ConfigSelection(default="mute", choices=[
 			("mute", _("Black screen")), ("hold", _("Hold screen")), ("mutetilllock", _("Black screen till locked")), ("holdtilllock", _("Hold till locked"))])
 		config.misc.zapmode.addNotifier(setZapmode, immediate_feedback=False)
-
-	if not SystemInfo["ZapMode"] and exists("/proc/stb/info/model"):
-		def setZapmodeDM(el):
-			print('[UsageConfig] >>> zapmodeDM')
-		config.misc.zapmodeDM = ConfigSelection(default="black", choices=[("black", _("Black screen")), ("hold", _("Hold screen"))])
-		config.misc.zapmodeDM.addNotifier(setZapmodeDM, immediate_feedback = False)
 
 	if SystemInfo["VFD_scroll_repeats"]:
 		def scroll_repeats(el):

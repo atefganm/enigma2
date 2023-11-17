@@ -374,12 +374,6 @@
 		<key id="KEY_YELLOW" mapto="audioSelection" flags="b" />
 	</map>
 
-	<map context="InfobarAspectSelectionActions">
-		<key id="KEY_GREEN" mapto="aspectSelection" flags="l" />
-		<key id="KEY_MODE" mapto="aspectSelection" flags="l" />
-		<key id="KEY_MODE" mapto="aspectSelection" flags="b" />
-	</map>
-
 	<map context="InfobarSubtitleSelectionActions">
 		<key id="KEY_SUBTITLE" mapto="subtitleSelection" flags="b" />
 		<key id="KEY_SUBTITLE" mapto="subtitleShowHide" flags="l" />
@@ -399,9 +393,8 @@
 	</map>
 
 	<map context="InfobarVmodeButtonActions">
-		<key id="KEY_SWITCHVIDEOMODE" mapto="vmodeSelection" flags="b" />
-		<!-- <key id="KEY_GREEN" mapto="vmodeSelection" flags="l" /> -->
-		<key id="KEY_ANGLE" mapto="vmodeSelection" flags="m" />
+		<key id="KEY_VMODE" mapto="vmodeSelection" flags="b" />
+		<key id="KEY_GREEN" mapto="vmodeSelection" flags="l" />
 	</map>
 
 	<map context="InfobarPiPActions">
