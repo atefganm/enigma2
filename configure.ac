@@ -190,7 +190,7 @@ if test "$BOXTYPE" == "dm7080" -o "$BOXTYPE" == "dm520" -o "$BOXTYPE" == "dm820"
 fi
 
 if test "$BOXTYPE" == "dm900" -o "$BOXTYPE" == "dm920"; then
-	AC_DEFINE(DREAMBOX_MOVE_LCD, 1,[define when we need to move lcd text a bit to the right])
+	AC_DEFINE(DM9X0_LCD, 1,[define when we need to move lcd text a bit to the right])
 fi
 
 if test "$BOXTYPE" == "dreamone" -o "$BOXTYPE" == "dreamtwo"; then
@@ -377,6 +377,13 @@ AC_ARG_WITH(accelerationaccumulation,
 
 if test x"$with_accelerationaccumulation" = xyes ; then
 	AC_DEFINE(SUPPORT_ACCUMULATED_ACCELERATION_OPERATIONS, 1,[Accumulate blit/fill acceleration operations])
+fi
+
+AC_ARG_WITH(olde2api,
+	AS_HELP_STRING([--with-olde2api],[use olde2api, yes or no]),
+	[with_olde2api=$withval],[with_olde2api=no])
+if test x"$with_olde2api" != xno ; then
+	AC_DEFINE(HAVE_OLDE2_API, 1,[define add old api of enigma2])
 fi
 
 AC_CHECK_HEADERS([sys/klog.h])
