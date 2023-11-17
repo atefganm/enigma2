@@ -5,6 +5,10 @@ import re
 from Tools.HardwareInfo import HardwareInfo
 from Components.SystemInfo import SystemInfo
 from sys import maxsize, modules, version_info
+from Tools.Directories import fileReadLine
+from subprocess import PIPE, Popen
+
+MODULE_NAME = __name__.split(".")[-1]
 
 
 def getVersionString():
@@ -147,6 +151,12 @@ def getCPUInfoString():
 		return _("undefined")
 
 
+def getChipSetString():
+	chipset = fileReadLine("/proc/stb/info/chipset", source=MODULE_NAME)
+	if chipset is None:
+		return _("Undefined")
+	return chipset.lower()
+
 def getDVBAPI():
 	if SystemInfo["OLDE2API"]:
 		return _("Old") 
@@ -227,6 +237,17 @@ def getBoxUptime():
 		return "%s" % time
 	except:
 		return '-'
+
+
+def getOpenSSLVersion():
+	process = Popen(("/usr/bin/openssl", "version"), stdout=PIPE, stderr=PIPE, universal_newlines=True)
+	stdout, stderr = process.communicate()
+	if process.returncode == 0:
+		data = stdout.strip().split()
+		if len(data) > 1 and data[0] == "OpenSSL":
+			return data[1]
+	print("[About] Get OpenSSL version failed.")
+	return _("Unknown")
 
 
 # For modules that do "from About import about"
