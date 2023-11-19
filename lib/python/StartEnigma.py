@@ -614,6 +614,10 @@ Screens.Ci.InitCiConfig()
 profile("RcModel")
 import Components.RcModel
 
+profile("UserInterface")
+import Screens.UserInterfacePositioner
+Screens.UserInterfacePositioner.InitOsd()
+
 profile("Init:PowerOffTimer")
 from Components.PowerOffTimer import powerOffTimer
 
