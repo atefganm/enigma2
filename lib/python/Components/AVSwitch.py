@@ -326,7 +326,7 @@ def InitAVSwitch():
 		config.av.btaudiodelay = ConfigSelectionNumber(-1000, 1000, 5, default=0)
 		config.av.btaudiodelay.addNotifier(setBTAudioDelay)
 
-	if SystemInfo["ScalerSharpness"]:
+	if SystemInfo["HasScaler_sharpness"]:
 		def setScaler_sharpness(config):
 			myval = int(config.value)
 			try:
