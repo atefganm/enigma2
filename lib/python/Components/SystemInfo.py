@@ -296,6 +296,7 @@ SystemInfo["CanAACTranscode"] = fileHas("/proc/stb/audio/aac_transcode_choices",
 SystemInfo["CanWMAPRO"] = fileHas("/proc/stb/audio/wmapro_choices", "downmix")
 SystemInfo["CanBTAudio"] = fileHas("/proc/stb/audio/btaudio_choices", "off")
 SystemInfo["CanBTAudioDelay"] = fileCheck("/proc/stb/audio/btaudio_delay") or fileCheck("/proc/stb/audio/btaudio_delay_pcm")
+SystemInfo["CanChangeOsdAlpha"] = access("/proc/stb/video/alpha", R_OK) and True or False
 SystemInfo["BootDevice"] = getBootdevice()
 SystemInfo["NimExceptionVuSolo2"] = model == "vusolo2"
 SystemInfo["NimExceptionVuDuo2"] = model == "vuduo2"

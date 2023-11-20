@@ -326,24 +326,17 @@ def InitAVSwitch():
 		config.av.btaudiodelay = ConfigSelectionNumber(-1000, 1000, 5, default=0)
 		config.av.btaudiodelay.addNotifier(setBTAudioDelay)
 
-	try:
-		SystemInfo["CanChangeOsdAlpha"] = open("/proc/stb/video/alpha", "r") and True or False
-	except:
-		SystemInfo["CanChangeOsdAlpha"] = False
-
-	if SystemInfo["CanChangeOsdAlpha"]:
-		def setAlpha(configElement):
-			open("/proc/stb/video/alpha", "w").write(str(configElement.value))
-		config.av.osd_alpha = ConfigSlider(default=255, limits=(0, 255))
-		config.av.osd_alpha.addNotifier(setAlpha)
-
-	if SystemInfo["HasScaler_sharpness"]:
-		def setScaler_sharpness(configElement):
+	if SystemInfo["ScalerSharpness"]:
+		def setScaler_sharpness(config):
+			myval = int(config.value)
 			try:
-				open("/proc/stb/vmpeg/0/pep_scaler_sharpness", "w").write("%0.8X" % int(configElement.value))
+				print("--> setting scaler_sharpness to: %0.8X" % myval)
+				print("[AVSwitch] Write to /proc/stb/vmpeg/0/pep_scaler_sharpness")
+				open("/proc/stb/vmpeg/0/pep_scaler_sharpness", "w").write("%0.8X" % myval)
+				print("[AVSwitch] Write to /proc/stb/vmpeg/0/pep_apply")
 				open("/proc/stb/vmpeg/0/pep_apply", "w").write("1")
-			except:
-				pass
+			except IOError:
+				print("[AVSwitch] Couldn't write pep_scaler_sharpness or pep_apply")
 
 		config.av.scaler_sharpness = ConfigSlider(default=13, limits=(0, 26))
 		config.av.scaler_sharpness.addNotifier(setScaler_sharpness)
@@ -411,6 +404,15 @@ def InitAVSwitch():
 		eDVBVolumecontrol.getInstance().setVolumeSteps(int(configElement.value))
 	config.av.volume_stepsize = ConfigSelectionNumber(1, 10, 1, default=5)
 	config.av.volume_stepsize.addNotifier(setVolumeStepsize)
+
+	if SystemInfo["CanChangeOsdAlpha"]:
+		def setAlpha(config):
+			try:
+				open("/proc/stb/video/alpha", "w").write(str(config.value))
+			except:
+				print("[AVSwitch] Write to /proc/stb/video/alpha failed!")
+		config.av.osd_alpha = ConfigSlider(default=255, limits=(0, 255))
+		config.av.osd_alpha.addNotifier(setAlpha)
 
 	if SystemInfo["HasBypassEdidChecking"]:
 		def setHasBypassEdidChecking(configElement):

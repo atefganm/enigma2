@@ -375,9 +375,13 @@ class InfoBarShowHide(InfoBarScreenSaver):
 		self.doWriteAlpha(config.av.osd_alpha.value)
 
 	def doWriteAlpha(self, value):
-		open("/proc/stb/video/alpha", "w").write(str(value))
-		if value == config.av.osd_alpha.value:
-			self.lastResetAlpha = True
+		if SystemInfo["CanChangeOsdAlpha"]:
+#			print("[InfoBarGenerics] Write to /proc/stb/video/alpha")
+			open("/proc/stb/video/alpha", "w").write(str(value))
+			if value == config.av.osd_alpha.value:
+				self.lastResetAlpha = True
+			else:
+				self.lastResetAlpha = False
 
 	def toggleShowLong(self):
 		if not config.usage.ok_is_channelselection.value:
