@@ -1,6 +1,8 @@
 from Components.config import config, ConfigSlider, ConfigSelection, ConfigYesNo, ConfigEnableDisable, ConfigSubsection, ConfigBoolean, ConfigSelectionNumber, ConfigNothing, NoSave
 from enigma import eAVSwitch, eDVBVolumecontrol, getDesktop
 from Components.SystemInfo import SystemInfo
+from Tools.HardwareInfo import HardwareInfo
+from os.path import isfile
 import os
 
 
@@ -23,11 +25,18 @@ class AVSwitch:
 		if valstr in ("4_3_letterbox", "4_3_panscan"): # 4:3
 			return (4, 3)
 		elif valstr == "16_9": # auto ... 4:3 or 16:9
-			try:
-				if "1" in open("/proc/stb/vmpeg/0/aspect", "r").read(): # 4:3
-					return (4, 3)
-			except IOError:
-				pass
+			if isfile("/proc/stb/vmpeg/0/aspect"):
+				try:
+					if "1" in open("/proc/stb/vmpeg/0/aspect", "r").read().split('\n', 1)[0]: # 4:3
+						return (4, 3)
+				except IOError:
+					print("[AVSwitch] Read /proc/stb/vmpeg/0/aspect failed!")
+			elif isfile("/sys/class/video/screen_mode"):
+				try:
+					if "1" in open("/sys/class/video/screen_mode", "r").read().split('\n', 1)[0]: # 4:3
+						return (4, 3)
+				except IOError:
+					print("[AVSwitch] Read /sys/class/video/screen_mode failed!")
 		elif valstr in ("16_9_always", "16_9_letterbox"): # 16:9
 			pass
 		elif valstr in ("16_10_letterbox", "16_10_panscan"): # 16:10
@@ -63,6 +72,11 @@ class AVSwitch:
 		else:
 			value = 1 # auto
 		eAVSwitch.getInstance().setWSS(value)
+
+	def getWindowsAxis(self):
+		port = config.av.videoport.value
+		mode = config.av.videomode[port].value
+		return axis[mode]
 
 
 def InitAVSwitch():
@@ -414,6 +428,21 @@ def InitAVSwitch():
 		config.av.osd_alpha = ConfigSlider(default=255, limits=(0, 255))
 		config.av.osd_alpha.addNotifier(setAlpha)
 
+	if SystemInfo["CanChangeOsdPlaneAlpha"]:
+		def setOSDPlaneAlpha(config):
+			try:
+				open("/sys/class/graphics/fb0/osd_plane_alpha", "w").write(hex(config.value))
+			except:
+				print("[AVSwitch] Write to /sys/class/graphics/fb0/osd_plane_alpha failed!")
+		config.av.osd_planealpha = ConfigSlider(default=255, limits=(0, 255))
+		config.av.osd_planealpha.addNotifier(setOSDPlaneAlpha)
+
+	config.av.force = ConfigSelection(default=None, choices=[
+		(None, _("Do not force")),
+		("50", _("Force 50Hz")),
+		("60", _("Force 60Hz"))
+	])
+
 	if SystemInfo["HasBypassEdidChecking"]:
 		def setHasBypassEdidChecking(configElement):
 			open(SystemInfo["HasBypassEdidChecking"], "w").write("00000001" if configElement.value else "00000000")
@@ -463,9 +492,41 @@ def InitAVSwitch():
 		config.av.hdmicolorimetry = ConfigSelection(choices=choices, default=default)
 		config.av.hdmicolorimetry.addNotifier(setColorimetry)
 
+	AmlHDRSupport = SystemInfo["AmlHDRSupport"]
+	if AmlHDRSupport:
+		def setAMLHDR10(configElement):
+			try:
+				open("/sys/class/amhdmitx/amhdmitx0/config", "w").write(configElement.value)
+			except (IOError, OSError):
+				print("[AVSwitch] Write to /sys/class/amhdmitx/amhdmitx0/config failed!")
+		config.av.amlhdr10_support = ConfigSelection(choices={
+				"hdr10-0": _("Force enabled"),
+				"hdr10-1": _("Force disabled"),
+				"hdr10-2": _("Controlled by HDMI")},
+				default="hdr10-2")
+		config.av.amlhdr10_support.addNotifier(setAMLHDR10)
+	else:
+		config.av.amlhdr10_support = ConfigNothing()
+
+	if AmlHDRSupport:
+		def setAMLHLG(configElement):
+			try:
+				open("/sys/class/amhdmitx/amhdmitx0/config", "w").write(configElement.value)
+			except (IOError, OSError):
+				print("[AVSwitch] Write to /sys/class/amhdmitx/amhdmitx0/config failed!")
+		config.av.amlhlg_support = ConfigSelection(choices={
+				"hlg-0": _("Force enabled"),
+				"hlg-1": _("Force disabled"),
+				"hlg-2": _("Controlled by HDMI")},
+				default="hlg-2")
+		config.av.amlhlg_support.addNotifier(setAMLHLG)
+	else:
+		config.av.amlhlg_support = ConfigNothing()
+
 	if SystemInfo["HasHdrType"]:
 		def setHdmiHdrType(configElement):
 			open(SystemInfo["HasHdrType"], "w").write(configElement.value)
+				print("[AVSwitch] Write to /proc/stb/video/hdmi_hdrtype failed!")
 		config.av.hdmihdrtype = ConfigSelection(default="auto", choices={"auto": _("auto"), "none": "SDR", "hdr10": "HDR10", "hlg": "HLG", "dolby": "Dolby Vision"})
 		config.av.hdmihdrtype.addNotifier(setHdmiHdrType)
 

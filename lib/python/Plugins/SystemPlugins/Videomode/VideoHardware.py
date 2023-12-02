@@ -3,6 +3,7 @@ from Components.SystemInfo import SystemInfo
 from Tools.CList import CList
 from Tools.HardwareInfo import HardwareInfo
 from Components.About import about
+from os.path import isfile
 import os
 
 # The "VideoHardware" is the interface to /proc/stb/video.
@@ -12,6 +13,20 @@ import os
 
 config.av.edid_override = ConfigYesNo(default=True)
 chipsetstring = about.getChipSetString()
+
+Has24hz = SystemInfo["Has24hz"]
+
+axis = {"480i": "0 0 719 479",
+				"480p": "0 0 719 479",
+				"576i": "0 0 719 575",
+				"576p": "0 0 719 575",
+				"720p": "0 0 1279 719",
+				"1080i": "0 0 1919 1079",
+				"1080p": "0 0 1919 1079",
+				"2160p30": "0 0 3839 2159",
+				"2160p": "0 0 3839 2159",
+				"smpte": "0 0 4095 2159"}
+
 
 class VideoHardware:
 	rates = {} # high-level, use selectable modes.
@@ -63,6 +78,13 @@ class VideoHardware:
 	else:
 		rates["2160p"] = {"50Hz": {50: "2160p50"}, "60Hz": {60: "2160p"}, "multi": {50: "2160p50", 60: "2160p"}, "auto": {50: "2160p50", 60: "2160p", 24: "2160p24"}}
 
+		rates["smpte"] = {"50Hz": {50: "smpte50hz"},
+				"60Hz": {60: "smpte60hz"},
+				"30Hz": {30: "smpte30hz"},
+				"25Hz": {25: "smpte25hz"},
+				"24Hz": {24: "smpte24hz"},
+				"auto": {60: "smpte60hz"}}
+
 	rates["PC"] = {
 		"1024x768": {60: "1024x768"}, # not possible on DM7025
 		"800x600": {60: "800x600"},  # also not possible
@@ -92,8 +114,8 @@ class VideoHardware:
 	modes["DVI-PC"] = ["PC"]
 
 	if HardwareInfo().get_device_name() in ("dreamone", "dreamtwo"):
-		modes['HDMI'] = ['720p', '1080p', '2160p', '1080i', '576p', '576i', '480p', '480i']
-		widescreen_modes = {'720p', '1080p', '1080i', '2160p'}
+			modes["HDMI"] = ["720p", "1080p", "smpte", "2160p30", "2160p", "1080i", "576p", "576i", "480p", "480i"]
+			widescreen_modes = {"720p", "1080p", "1080i", "2160p", "smpte"}
 
 	def getOutputAspect(self):
 		ret = (16, 9)
@@ -113,12 +135,18 @@ class VideoHardware:
 					if aspect == "16:10":
 						ret = (16, 10)
 			elif is_auto:
+					if isfile("/proc/stb/vmpeg/0/aspect"):
 				try:
 					aspect_str = open("/proc/stb/vmpeg/0/aspect", "r").read()
-					if aspect_str == "1": # 4:3
-						ret = (4, 3)
 				except IOError:
-					pass
+					print("[Videomode] Read /proc/stb/vmpeg/0/aspect failed!")
+			elif isfile("/sys/class/video/screen_mode"):
+				try:
+					aspect_str = open("/sys/class/video/screen_mode", "r").read()
+				except IOError:
+					print("[Videomode] Read /sys/class/video/screen_mode failed!")
+			if aspect_str == "1": # 4:3
+				ret = (4, 3)
 			else:  # 4:3
 				ret = (4, 3)
 		return ret
@@ -155,28 +183,32 @@ class VideoHardware:
 		config.av.policy_43.addNotifier(self.updateAspect)
 
 	def readAvailableModes(self):
-		try:
-			modes = open("/proc/stb/video/videomode_choices").read()[:-1]
-		except IOError:
-			print("[VideoHardware] couldn't read available videomodes.")
-			self.modes_available = []
-			return
-		self.modes_available = modes.split(' ')
+			if isfile("/sys/class/amhdmitx/amhdmitx0/disp_cap"):
+				print("[Videomode] Read /sys/class/amhdmitx/amhdmitx0/disp_cap")
+				modes = open("/sys/class/amhdmitx/amhdmitx0/disp_cap").read()[:-1].replace('*', '')
+				self.modes_available = modes.splitlines()
+				return self.modes_available
+			else:
+				try:
+					modes = open("/proc/stb/video/videomode_choices").read()[:-1]
+				except (IOError, OSError):
+					print("[Videomode] Read /proc/stb/video/videomode_choices failed!")
+					self.modes_available = []
+					return
+				self.modes_available = modes.split(' ')
 
 	def readPreferredModes(self):
 		if config.av.edid_override.value == False:
-			if HardwareInfo().get_device_name() in ("dreamone", "dreamtwo"):
-				f = open('/sys/class//amhdmitx/amhdmitx0/disp_cap')
-				modes = f.read()[:-1]
-				f.close()
+			if isfile("/sys/class/amhdmitx/amhdmitx0/disp_cap"):
+				modes = open("/sys/class/amhdmitx/amhdmitx0/disp_cap").read()[:-1].replace('*', '')
 				self.modes_preferred = modes.splitlines()
 				print('[AVSwitch] reading edid modes: ', self.modes_preferred)
 			else:
 				try:
 					modes = open("/proc/stb/video/videomode_preferred").read()[:-1]
 					self.modes_preferred = modes.split(' ')
-				except IOError:
-					print("[VideoHardware] reading preferred modes failed, using all video modes")
+				except (IOError, OSError):
+					print("[Videomode] Read /proc/stb/video/videomode_edid failed!")
 					self.modes_preferred = self.modes_available
 
 			if len(self.modes_preferred) <= 1:
@@ -212,50 +244,71 @@ class VideoHardware:
 
 		mode_50 = modes.get(50)
 		mode_60 = modes.get(60)
+		mode_30 = modes.get(30)
+		mode_25 = modes.get(25)
 		mode_24 = modes.get(24)
 
 		if mode_50 is None or force == 60:
 			mode_50 = mode_60
 		if mode_60 is None or force == 50:
 			mode_60 = mode_50
+
+		if mode_30 is None or force:
+			mode_30 = mode_60
+			if force == 50:
+				mode_30 = mode_50
+		if mode_25 is None or force:
+			mode_25 = mode_60
+			if force == 50:
+				mode_25 = mode_50
 		if mode_24 is None or force:
 			mode_24 = mode_60
 			if force == 50:
 				mode_24 = mode_50
 
 		if HardwareInfo().get_device_name() in ("dreamone", "dreamtwo"):
-			f = open('/sys/class/display/mode', 'w')
-			f.write('576i50hz')
-			f.close()
-			amlmode = mode + rate.lower()
-			f = open('/sys/class/display/mode', 'w')
-			f.write(amlmode)
-			f.close()
-			print('##########################[AVSwitch] setting videomode to::::', amlmode)
-
-		try:
-			open("/proc/stb/video/videomode_50hz", "w").write(mode_50)
-			open("/proc/stb/video/videomode_60hz", "w").write(mode_60)
-		except IOError:
-			try:
-				# fallback if no possibility to setup 50/60 hz mode
-				open("/proc/stb/video/videomode", "w").write(mode_50)
-			except IOError:
-				print("[VideoHardware] setting videomode failed.")
-
-		try:
-			open("/etc/videomode", "w").write(mode_50) # use 50Hz mode (if available) for booting
-		except IOError:
-			print("[VideoHardware] writing initial videomode to /etc/videomode failed.")
-
-		if SystemInfo["Has24hz"]:
-			if HardwareInfo().get_device_name() in ("dreamone", "dreamtwo"):
-				self.has24pAvailable = False
-			else:
+				amlmode = list(modes.values())[0]
+				oldamlmode = fileReadLine("/sys/class/display/mode", default="", source=MODULE_NAME)
+				fileWriteLine("/sys/class/display/mode", amlmode, source=MODULE_NAME)
+				fileWriteLine("/etc/u-boot.scr.d/000_hdmimode.scr", "setenv hdmimode %s" % amlmode, source=MODULE_NAME)
+				fileWriteLine("/etc/u-boot.scr.d/000_outputmode.scr", "setenv outputmode %s" % amlmode, source=MODULE_NAME)
 				try:
-					open("/proc/stb/video/videomode_24hz", "w").write(mode_24)
-				except IOError:
-					print("[VideoHardware] cannot open /proc/stb/video/videomode_24hz")
+						Console().ePopen("update-autoexec")
+				except:
+						print("[VideoHardware] update-autoexec failed!")
+				fileWriteLine("/sys/class/ppmgr/ppscaler", "1", source=MODULE_NAME)
+				fileWriteLine("/sys/class/ppmgr/ppscaler", "0", source=MODULE_NAME)
+				fileWriteLine("/sys/class/video/axis", self.axis[mode], source=MODULE_NAME)
+				limits = [int(x) for x in self.axis[mode].split()]
+				config.osd.dst_left = ConfigSelectionNumber(default=limits[0], stepwidth=1, min=limits[0] - 255, max=limits[0] + 255, wraparound=False)
+				config.osd.dst_top = ConfigSelectionNumber(default=limits[1], stepwidth=1, min=limits[1] - 255, max=limits[1] + 255, wraparound=False)
+				config.osd.dst_width = ConfigSelectionNumber(default=limits[2], stepwidth=1, min=limits[2] - 255, max=limits[2] + 255, wraparound=False)
+				config.osd.dst_height = ConfigSelectionNumber(default=limits[3], stepwidth=1, min=limits[3] - 255, max=limits[3] + 255, wraparound=False)
+
+				if oldamlmode and oldamlmode != amlmode:
+					config.osd.dst_width.setValue(limits[0])
+					config.osd.dst_height.setValue(limits[1])
+					config.osd.dst_left.setValue(limits[2])
+					config.osd.dst_top.setValue(limits[3])
+					config.osd.dst_left.save()
+					config.osd.dst_width.save()
+					config.osd.dst_top.save()
+					config.osd.dst_height.save()
+
+				tride = fileReadLine("/sys/class/graphics/fb0/stride", default="", source=MODULE_NAME)
+				print("[AVSwitch] Framebuffer mode:%s  stride:%s axis:%s" % (getDesktop(0).size().width(), stride, self.axis[mode]))
+
+			success = fileWriteLine("/proc/stb/video/videomode_50hz", mode_50, source=MODULE_NAME)
+			if success:
+					success = fileWriteLine("/proc/stb/video/videomode_60hz", mode_60, source=MODULE_NAME)
+			if not success:  # Fallback if no possibility to setup 50/60 hz mode
+							try:
+									fileWriteLine("/proc/stb/video/videomode", mode_50, source=MODULE_NAME)
+							except:
+									fileWriteLine("/sys/class/display/mode", mode_50, source=MODULE_NAME)
+
+			if SystemInfo["Has24hz"] and mode_24 is not None:
+				fileWriteLine("/proc/stb/video/videomode_24hz", mode_24, source=MODULE_NAME)
 
 		self.updateAspect(None)
 
@@ -269,6 +322,12 @@ class VideoHardware:
 		if mode in config.av.videorate:
 			config.av.videorate[mode].value = rate
 			config.av.videorate[mode].save()
+
+	def getAMLMode(self):
+		f = open("/sys/class/display/mode", "r")
+		currentmode = f.read().strip()
+		f.close()
+		return currentmode[:-4]
 
 	def isPortAvailable(self, port):
 		# fixme
