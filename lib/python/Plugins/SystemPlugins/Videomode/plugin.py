@@ -105,9 +105,6 @@ class VideoSetup(ConfigListScreen, Screen):
 					self.list.append((_("HDR10 support"), config.av.hdr10_support, _("This option allows you to force the HDR10 modes for UHD")))
 					self.list.append((_("Allow 12bit"), config.av.allow_12bit, _("This option allows you to enable or disable the 12 bit color mode")))
 					self.list.append((_("Allow 10bit"), config.av.allow_10bit, _("This option allows you to enable or disable the 10 bit color mode")))
-				if SystemInfo["AmlHDRSupport"]:
-					self.list.append((_("Amlogic HLG Support"), config.av.amlhlg_support, _("This option allows you to force the HLG modes for UHD")))
-					self.list.append((_("Amlogic HDR10 Support"), config.av.amlhdr10_support, _("This option allows you to force the HDR10 modes for UHD")))
 
 		if config.av.videoport.value == "Scart":
 			self.list.append((_("Color format"), config.av.colorformat, _("Configure which color format should be used on the SCART output.")))
@@ -158,8 +155,6 @@ class VideoSetup(ConfigListScreen, Screen):
 		if SystemInfo["CanChangeOsdAlpha"]:
 			self.list.append((_("OSD transparency"), config.av.osd_alpha, _("Configure the transparency of the OSD.")))
 			self.list.append((_("Teletext base visibility"), config.osd.alpha_teletext, _("Base transparency for teletext, more options available within teletext screen.")))
-		if SystemInfo["CanChangeOsdPlaneAlpha"]:
-			self.list.append(getConfigListEntry(_("OSD plane transparency"), config.av.osd_planealpha, _("Configure the transparency of the OSD.")))
 
 		if not isinstance(config.av.scaler_sharpness, ConfigNothing):
 			self.list.append((_("Scaler sharpness"), config.av.scaler_sharpness, _("Configure the sharpness of the video scaling.")))

@@ -7,14 +7,8 @@ from Components.SystemInfo import SystemInfo
 from sys import maxsize, modules, version_info
 from Tools.Directories import fileReadLine
 from subprocess import PIPE, Popen
-from enigma import getBoxType
 
 MODULE_NAME = __name__.split(".")[-1]
-
-
-def getModelString():
-	model = getBoxType()
-	return model
 
 
 def getVersionString():
