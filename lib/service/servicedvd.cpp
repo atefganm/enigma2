@@ -1120,7 +1120,7 @@ void eServiceDVD::saveCuesheet()
 		if (stat("/home/root", &st) == 0 && stat(filename.c_str(), &st) != 0)
 			if (mkdir(filename.c_str(), 0755))
 				return; // cannot create directory so no point in trying to save cue data
-			
+
 		filename += "/";
 		if (m_ddvd_titlestring[0] != '\0')
 			filename += m_ddvd_titlestring;
@@ -1175,12 +1175,12 @@ eAutoInitPtr<eServiceFactoryDVD> init_eServiceFactoryDVD(eAutoInitNumbers::servi
 		PyModuleDef_HEAD_INIT,
 		"servicedvd",	/* m_name */
 		"servicedvd",	/* m_doc */
-		-1,				/* m_size */
-		NULL,			/* m_methods */
-		NULL,			/* m_reload */
-		NULL,			/* m_traverse */
-		NULL,			/* m_clear */
-		NULL,			/* m_free */
+		-1,		/* m_size */
+		NULL,		/* m_methods */
+		NULL,		/* m_reload */
+		NULL,		/* m_traverse */
+		NULL,		/* m_clear */
+		NULL,		/* m_free */
 	};
 
 PyMODINIT_FUNC
