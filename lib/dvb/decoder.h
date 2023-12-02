@@ -198,7 +198,7 @@ public:
 	static RESULT setHwPCMDelay(int delay);
 	static RESULT setHwAC3Delay(int delay);
 
-	enum 
+	enum
 	{
 		fcc_state_stop,
 		fcc_state_ready,

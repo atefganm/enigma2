@@ -275,7 +275,7 @@ int eDVBService::isPlayable(const eServiceReference &ref, const eServiceReferenc
 				if (pModule != NULL)
 				{
 					pFunc = PyObject_GetAttrString(pModule, "isPlayable");
-					if (pFunc) 
+					if (pFunc)
 					{
 						pArgs = PyTuple_New(1);
 						pArg = PyUnicode_FromString(ref.toString().c_str());
@@ -1836,7 +1836,7 @@ PyObject *eDVBDB::readTerrestrials(ePyObject ter_list, ePyObject tp_dict)
 
 			Py_DECREF(tplist);
 		}
-		else if (ter_flags || ter_countrycode) 
+		else if (ter_flags || ter_countrycode)
 		{
 			if (ter_flags)
 			{
