@@ -1,5 +1,5 @@
 #include <linux/dvb/version.h>
-
+#include <linux/version.h>
 #include <lib/dvb/dvb.h>
 #include <lib/dvb/frontendparms.h>
 #include <lib/base/cfile.h>
@@ -1378,7 +1378,15 @@ void eDVBFrontend::calculateSignalQuality(int snr, int &signalquality, int &sign
 	{
 		ret = snr;
 	}
-	
+	else if (!strcmp(m_description, "AVL62X1"))
+	{
+		ret = snr;
+	}
+	else if (!strcmp(m_description, "gService DVB-S2")) // SX88V2
+	{
+		ret = snr;
+	}
+
 	signalqualitydb = ret;
 	if (ret == 0x12345678) // no snr db calculation avail.. return untouched snr value..
 	{
@@ -3311,6 +3319,9 @@ std::string eDVBFrontend::getCapabilities()
 		case SYS_DVBC_ANNEX_C:	ss << " DVBC_ANNEX_C"; break;
 		case SYS_TURBO:		ss << " TURBO"; break;
 		case SYS_DTMB:		ss << " DTMB"; break;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,4,0)
+		case SYS_DVBC2:		ss << " DVBC2"; break;
+#endif
 #endif
 		case SYS_DVBT2:		ss << " DVBT2"; break;
 		}
