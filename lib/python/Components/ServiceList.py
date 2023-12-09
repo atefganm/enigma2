@@ -67,6 +67,8 @@ class ServiceList(GUIComponent):
 		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "icons/ico_altref-fs8.png"))
 		pic and self.l.setPixmap(self.l.picBackup, pic)
 
+		self.l.setAlternativeRecordMatching(False)
+
 		self.root = None
 		self.mode = self.MODE_NORMAL
 		self.listHeight = 0
@@ -214,12 +216,6 @@ class ServiceList(GUIComponent):
 
 		def textSeparator(value):
 			self.l.setTextSeparator(value)
-
-		def selectionPixmap(value):
-			self.selectionPixmapSingle = value
-
-		def selectionPixmapLarge(value):
-			self.selectionPixmapDouble = value
 
 		def itemHeightTwoLine(value):
 			self.ItemHeightTwoLine = parseScale(value)
@@ -485,16 +481,6 @@ class ServiceList(GUIComponent):
 		self.l.setItemHeight(self.ItemHeight if two_lines_val == 0 else self.ItemHeightTwoLine)
 		self.l.setVisualMode(eListboxServiceContent.visModeComplex if two_lines_val == 0 else eListboxServiceContent.visSkinDefined)
 
-		pic = None
-		if two_lines_val:
-			if self.selectionPixmapDouble:
-				pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, self.selectionPixmapDouble))
-		else:
-			if self.selectionPixmapSingle:
-				pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, self.selectionPixmapSingle))
-
-		pic and hasattr(self.l, "setSelectionPicture") and self.l.setSelectionPicture(pic)
-
 		if config.usage.service_icon_enable.value:
 			self.l.setGetPiconNameFunc(getPiconName)
 		else:
@@ -515,15 +501,7 @@ class ServiceList(GUIComponent):
 		if "perc" in config.usage.show_event_progress_in_servicelist.value:
 			progressWidth = self.progressPercentWidth or self.progressBarWidth
 
-		if "left" in config.usage.show_event_progress_in_servicelist.value:
-			self.l.setElementPosition(self.l.celServiceEventProgressbar, eRect(channelNumberWidth + channelNumberSpace + self.sidesMargin, 0, progressWidth, self.ItemHeight))
-			self.l.setElementPosition(self.l.celServiceName, eRect(channelNumberWidth + channelNumberSpace + progressWidth + self.fieldMargins + self.sidesMargin, 0, rowWidth - (channelNumberWidth + channelNumberSpace + progressWidth + self.fieldMargins), self.ItemHeight))
-		elif "right" in config.usage.show_event_progress_in_servicelist.value:
-			self.l.setElementPosition(self.l.celServiceEventProgressbar, eRect(rowWidth - progressWidth, 0, progressWidth, self.ItemHeight))
-			self.l.setElementPosition(self.l.celServiceName, eRect(channelNumberWidth + channelNumberSpace + self.sidesMargin, 0, rowWidth - (channelNumberWidth + channelNumberSpace + progressWidth + self.fieldMargins), self.ItemHeight))
-		else:
-			self.l.setElementPosition(self.l.celServiceEventProgressbar, eRect(0, 0, 0, 0))
-			self.l.setElementPosition(self.l.celServiceName, eRect(channelNumberWidth + channelNumberSpace + self.sidesMargin, 0, rowWidth - (channelNumberWidth + channelNumberSpace + self.sidesMargin), self.ItemHeight))
+		self.l.setElementPosition(self.l.celServiceEventProgressbar, eRect(0, 0, progressWidth, self.ItemHeight))
 
 		self.l.setElementFont(self.l.celServiceName, self.ServiceNameFont)
 		self.l.setElementFont(self.l.celServiceNumber, self.ServiceNumberFont)
@@ -535,6 +513,9 @@ class ServiceList(GUIComponent):
 		self.l.setCryptoIconMode(int(config.usage.crypto_icon_mode.value))
 		self.l.setRecordIndicatorMode(int(config.usage.record_indicator_mode.value))
 		self.l.setColumnWidth(-1 if two_lines_val > 0 else int(config.usage.servicelist_column.value))
+		self.l.setProgressBarMode(config.usage.show_event_progress_in_servicelist.value)
+		self.l.setChannelNumbersVisible(config.usage.show_channel_numbers_in_servicelist.value)
+		self.l.setAlternativeNumberingMode(config.usage.alternative_number_mode.value)
 
 	def selectionEnabled(self, enabled):
 		if self.instance is not None:
