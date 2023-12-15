@@ -395,7 +395,7 @@ def loadPixmap(path, desktop, width=0, height=0):
 	option = path.find("#")
 	if option != -1:
 		path = path[:option]
-	if not rc_model.rcIsDefault() and basename(path) in ("rc.png", "rc0.png", "rc1.png", "rc2.png", "oldrc.png"):
+	if basename(path) in ("rc.png", "rc0.png", "rc1.png", "rc2.png", "oldrc.png"):
 		path = rc_model.getRcImg()
 	pixmap = LoadPixmap(path, desktop, None, width, height)
 	if pixmap is None:
@@ -403,7 +403,7 @@ def loadPixmap(path, desktop, width=0, height=0):
 	return pixmap
 
 
-def collectAttributes(skinAttributes, node, context, skinPath=None, ignore=(), filenames=frozenset(("pixmap", "pointer", "seek_pointer", "backgroundPixmap", "selectionPixmap", "selectionPixmapLarge", "sliderPixmap", "scrollbarSliderPicture", "scrollbarbackgroundPixmap", "scrollbarBackgroundPicture"))):
+def collectAttributes(skinAttributes, node, context, skinPath=None, ignore=(), filenames=frozenset(("pixmap", "pointer", "seek_pointer", "backgroundPixmap", "selectionPixmap", "sliderPixmap", "scrollbarSliderPicture", "scrollbarbackgroundPixmap", "scrollbarBackgroundPicture"))):
 	size = None
 	pos = None
 	font = None
@@ -518,9 +518,6 @@ class AttributeParser:
 
 	def selectionPixmap(self, value):
 		self.guiObject.setSelectionPicture(loadPixmap(value, self.desktop))
-
-	def selectionPixmapLarge(self, value):
-		self.guiObject.setSelectionPictureLarge(loadPixmap(value, self.desktop))
 
 	def sliderPixmap(self, value):
 		self.guiObject.setSliderPicture(loadPixmap(value, self.desktop))
