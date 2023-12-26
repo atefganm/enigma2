@@ -1,6 +1,7 @@
 from os import R_OK, access, listdir, walk
 from os.path import exists as fileAccess, isdir, isfile, join as pathjoin
 from re import findall
+from hashlib import md5
 from subprocess import PIPE, Popen
 
 from enigma import Misc_Options, eDVBCIInterfaces, eDVBResourceManager, eGetEnigmaDebugLvl
@@ -13,130 +14,80 @@ PROC_PATH = "/proc/enigma"
 
 SystemInfo = {}
 
-class BoxInformation:  # To maintain data integrity class variables should not be accessed from outside of this class!
-	def __init__(self):
-		self.enigmaList = []
-		self.enigmaInfo = {}
+from Tools.Multiboot import getMultibootStartupDevice, getMultibootslots  # This import needs to be here to avoid a SystemInfo load loop!
+
+
+class BoxInformation:
+	def __init__(self, root=""):
 		self.immutableList = []
 		self.boxInfo = {}
-		self.procList = [file for file in listdir(PROC_PATH) if isfile(pathjoin(PROC_PATH, file))] if isdir(PROC_PATH) else []
-		lines = fileReadLines("/etc/enigma.conf", source=MODULE_NAME)
-		if lines:
-			for line in lines:
+		self.boxInfo["checksum"] = None
+		checksumcollectionstring = ""
+		file = root + "/usr/lib/enigma.info"
+		if fileExists(file):
+			for line in open(file, 'r').readlines():
+				if line.startswith("checksum="):
+					self.boxInfo["checksum"] = md5(bytearray(checksumcollectionstring, "UTF-8", errors="ignore")).hexdigest() == line.strip().split('=')[1]
+					break
+				checksumcollectionstring += line
 				if line.startswith("#") or line.strip() == "":
 					continue
-				if "=" in line:
-					item, value = [x.strip() for x in line.split("=", 1)]
-					if item:
-						self.enigmaList.append(item)
-						self.enigmaInfo[item] = self.processValue(value)
-			print("[SystemInfo] Enigma config override file available and data loaded into BoxInfo.")
-		for dirpath, dirnames, filenames in walk("/lib/modules"):
-			if ENIGMA_KERNEL_MODULE in filenames:
-				modulePath = pathjoin(dirpath, ENIGMA_KERNEL_MODULE)
-				self.boxInfo["enigmamodule"] = modulePath
-				self.immutableList.append("enigmamodule")
-				break
-		else:
-			modulePath = ""
-		# As the /proc values are static we can save time by using cached
-		# values loaded here.  If the values become dynamic this code
-		# should be disabled and the dynamic code below enabled.
-		if self.procList:
-			for item in self.procList:
-				self.boxInfo[item] = self.processValue(fileReadLine(pathjoin(PROC_PATH, item), source=MODULE_NAME))
-				self.immutableList.append(item)
-			print("[SystemInfo] Enigma kernel module available and data loaded into BoxInfo.")
-		else:
-			process = Popen(("/sbin/modinfo", "-d", modulePath), stdout=PIPE, stderr=PIPE, universal_newlines=True)
-			stdout, stderr = process.communicate()
-			if process.returncode == 0:
-				for line in stdout.split("\n"):
-					if "=" in line:
-						item, value = line.split("=", 1)
-						if item:
-							self.procList.append(item)
-							self.boxInfo[item] = self.processValue(value)
-							self.immutableList.append(item)
-				print("[SystemInfo] Enigma kernel module not available but modinfo data loaded into BoxInfo!")
+				if '=' in line:
+					item, value = [x.strip() for x in line.split('=')]
+					self.immutableList.append(item)
+					self.boxInfo[item] = self.processValue(value)
+			if self.boxInfo["checksum"]:
+				print("[SystemInfo] Enigma information file data loaded into BoxInfo.")
 			else:
-				print("[SystemInfo] Error: Unable to load Enigma kernel module data!  (Error %d: %s)" % (process.returncode, stderr.strip()))
-		self.enigmaList = sorted(self.enigmaList)
-		self.procList = sorted(self.procList)
+				print("[SystemInfo] Enigma information file data loaded, but checksum failed.")
+		else:
+			print("[SystemInfo] ERROR: %s is not available!  The system is unlikely to boot or operate correctly." % file)
 
 	def processValue(self, value):
-		if value is None:
-			pass
-		elif value.startswith("\"") or value.startswith("'") and value.endswith(value[0]):
-			value = value[1:-1]
-		elif value.startswith("(") and value.endswith(")"):
-			data = []
-			for item in [x.strip() for x in value[1:-1].split(",")]:
-				data.append(self.processValue(item))
-			value = tuple(data)
-		elif value.startswith("[") and value.endswith("]"):
-			data = []
-			for item in [x.strip() for x in value[1:-1].split(",")]:
-				data.append(self.processValue(item))
-			value = list(data)
-		elif value.upper() == "NONE":
-			value = None
-		elif value.upper() in ("FALSE", "NO", "OFF", "DISABLED"):
-			value = False
-		elif value.upper() in ("TRUE", "YES", "ON", "ENABLED"):
-			value = True
-		elif value.isdigit() or (value[0:1] == "-" and value[1:].isdigit()):
-			value = int(value)
-		elif value.startswith("0x") or value.startswith("0X"):
-			value = int(value, 16)
-		elif value.startswith("0o") or value.startswith("0O"):
-			value = int(value, 8)
-		elif value.startswith("0b") or value.startswith("0B"):
-			value = int(value, 2)
-		else:
-			try:
-				value = float(value)
-			except ValueError:
-				pass
-		return value
+		if value is not None:
+			if value and value[0] in ("\"", "'") and value[-1] == value[0]:
+				return value[1:-1]
+			elif value.upper() == "NONE":
+				return None
+			elif value.upper() in ("FALSE", "NO", "OFF", "DISABLED"):
+				return False
+			elif value.upper() in ("TRUE", "YES", "ON", "ENABLED"):
+				return True
+			else:
+				try:
+					return eval(value)
+				except:
+					return value
 
-	def getEnigmaList(self):
-		return self.enigmaList
+	def getEnigmaInfoList(self):
+		return sorted(self.immutableList)
 
-	def getProcList(self):
-		return self.procList
+	def getEnigmaConfList(self):  # not used by us
+		return []
 
 	def getItemsList(self):
-		return sorted(list(self.boxInfo.keys()))
+		return sorted(self.boxInfo.keys())
 
 	def getItem(self, item, default=None):
-		if item in self.enigmaList:
-			value = self.enigmaInfo[item]
-		# As the /proc values are static we can save time by uusing cached
-		# values loaded above.  If the values become dynamic this code
-		# should be enabled.
-		# elif item in self.procList:
-		# 	value = self.processValue(fileReadLine(pathjoin(PROC_PATH, item), source=MODULE_NAME))
-		elif item in self.boxInfo:
-			value = self.boxInfo[item]
+		if item in self.boxInfo:
+			return self.boxInfo[item]
 		elif item in SystemInfo:
-			value = SystemInfo[item]
+			return SystemInfo[item]
 		else:
-			value = default
-		return value
+			return default
 
-	def setItem(self, item, value, immutable=False):
-		if item in self.immutableList or item in self.procList:
+	def setItem(self, item, value, immutable=False, forceOverride=False):
+		if item in self.immutableList and not forceOverride:
 			print("[BoxInfo] Error: Item '%s' is immutable and can not be %s!" % (item, "changed" if item in self.boxInfo else "added"))
 			return False
-		if immutable:
+		if immutable and item not in self.immutableList:
 			self.immutableList.append(item)
 		self.boxInfo[item] = value
 		SystemInfo[item] = value
 		return True
 
-	def deleteItem(self, item):
-		if item in self.immutableListor or item in self.procList:
+	def deleteItem(self, item, forceOverride=False):
+		if item in self.immutableList and not forceOverride:
 			print("[BoxInfo] Error: Item '%s' is immutable and can not be deleted!" % item)
 		elif item in self.boxInfo:
 			del self.boxInfo[item]
@@ -146,7 +97,6 @@ class BoxInformation:  # To maintain data integrity class variables should not b
 
 BoxInfo = BoxInformation()
 
-from Tools.Multiboot import getMultibootStartupDevice, getMultibootslots  # This import needs to be here to avoid a SystemInfo load loop!
 
 # Parse the boot commandline.
 #
