@@ -136,8 +136,6 @@ def getRCFile(ext):
 
 
 model = BoxInfo.getItem("machine")
-print(model)
-device_name = open("/proc/stb/info/model").read().strip()
 
 BoxInfo.setItem("RCImage", getRCFile("png"))
 BoxInfo.setItem("RCMapping", getRCFile("xml"))
@@ -161,7 +159,7 @@ SystemInfo["LCDshow_symbols"] = (model.startswith("et9") or model in ("hd51", "v
 SystemInfo["LCDsymbol_hdd"] = model in ("hd51", "vs1500") and fileCheck("/proc/stb/lcd/symbol_hdd")
 SystemInfo["CanUse3DModeChoices"] = fileExists("/proc/stb/fb/3dmode_choices") and True or False
 SystemInfo["FrontpanelDisplayGrayscale"] = fileExists("/dev/dbox/oled0")
-SystemInfo["DeepstandbySupport"] = device_name != "dm800"
+SystemInfo["DeepstandbySupport"] = model != "dm800"
 SystemInfo["OLDE2API"] = model in ("dm800")
 SystemInfo["Fan"] = fileCheck("/proc/stb/fp/fan")
 SystemInfo["FanPWM"] = SystemInfo["Fan"] and fileCheck("/proc/stb/fp/fan_pwm")
@@ -251,7 +249,7 @@ SystemInfo["CanChangeOsdAlpha"] = access("/proc/stb/video/alpha", R_OK) and True
 SystemInfo["BootDevice"] = getBootdevice()
 SystemInfo["NimExceptionVuSolo2"] = model == "vusolo2"
 SystemInfo["NimExceptionVuDuo2"] = model == "vuduo2"
-SystemInfo["NimExceptionDMM8000"] = device_name == "dm8000"
+SystemInfo["NimExceptionDMM8000"] = model == "dm8000"
 SystemInfo["FbcTunerPowerAlwaysOn"] = model in ("vusolo4k", "vuduo4k", "vuduo4kse", "vuultimo4k", "vuuno4k", "vuuno4kse")
 SystemInfo["HasPhysicalLoopthrough"] = ["Vuplus DVB-S NIM(AVL2108)", "GIGA DVB-S2 NIM (Internal)"]
 if model in ("et7500", "et8500"):
