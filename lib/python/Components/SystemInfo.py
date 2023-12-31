@@ -6,7 +6,6 @@ from subprocess import PIPE, Popen
 
 from enigma import Misc_Options, eDVBCIInterfaces, eDVBResourceManager, eGetEnigmaDebugLvl
 from Tools.Directories import SCOPE_PLUGINS, SCOPE_SKIN, fileCheck, fileContains, fileReadLine, fileReadLines, resolveFilename, fileExists, fileHas, fileReadLine, pathExists
-from Tools.HardwareInfo import HardwareInfo
 
 MODULE_NAME = __name__.split(".")[-1]
 ENIGMA_KERNEL_MODULE = "enigma.ko"
@@ -136,7 +135,9 @@ def getRCFile(ext):
 	return filename
 
 
-model = HardwareInfo().get_device_model()
+model = BoxInfo.getItem("machine")
+print(model)
+device_name = open("/proc/stb/info/model").read().strip()
 
 BoxInfo.setItem("RCImage", getRCFile("png"))
 BoxInfo.setItem("RCMapping", getRCFile("xml"))
@@ -160,7 +161,7 @@ SystemInfo["LCDshow_symbols"] = (model.startswith("et9") or model in ("hd51", "v
 SystemInfo["LCDsymbol_hdd"] = model in ("hd51", "vs1500") and fileCheck("/proc/stb/lcd/symbol_hdd")
 SystemInfo["CanUse3DModeChoices"] = fileExists("/proc/stb/fb/3dmode_choices") and True or False
 SystemInfo["FrontpanelDisplayGrayscale"] = fileExists("/dev/dbox/oled0")
-SystemInfo["DeepstandbySupport"] = HardwareInfo().get_device_name() != "dm800"
+SystemInfo["DeepstandbySupport"] = device_name != "dm800"
 SystemInfo["OLDE2API"] = model in ("dm800")
 SystemInfo["Fan"] = fileCheck("/proc/stb/fp/fan")
 SystemInfo["FanPWM"] = SystemInfo["Fan"] and fileCheck("/proc/stb/fp/fan_pwm")
@@ -208,10 +209,10 @@ SystemInfo["HasHDMIpreemphasis"] = fileCheck("/proc/stb/hdmi/preemphasis")
 SystemInfo["HasColorimetry"] = fileCheck("/proc/stb/video/hdmi_colorimetry")
 SystemInfo["HasHdrType"] = fileCheck("/proc/stb/video/hdmi_hdrtype")
 SystemInfo["HasScaler_sharpness"] = pathExists("/proc/stb/vmpeg/0/pep_scaler_sharpness")
-SystemInfo["HasHDMIin"] = model in ('dm7080', 'dm820', 'vuduo4k', 'vuduo4kse', 'vuultimo4k', 'vuuno4kse', 'gbquad4k', 'hd2400', 'et10000')
+SystemInfo["HasHDMIin"] = BoxInfo.getItem("dmifhdin") or BoxInfo.getItem("hdmihdin")
 SystemInfo["HasHDMIinFHD"] = model in ('dm900', 'dm920', 'dreamone', 'dreamtwo')
 SystemInfo["HDMIin"] = SystemInfo["HasHDMIin"] or SystemInfo["HasHDMIinFHD"]
-SystemInfo["HasHDMI-CEC"] = HardwareInfo().has_hdmi() and fileExists(resolveFilename(SCOPE_PLUGINS, "SystemPlugins/HdmiCEC/plugin.pyc")) and (fileExists("/dev/cec0") or fileExists("/dev/hdmi_cec") or fileExists("/dev/misc/hdmi_cec0"))
+SystemInfo["HasHDMI-CEC"] = BoxInfo.getItem("hdmi") and fileExists(resolveFilename(SCOPE_PLUGINS, "SystemPlugins/HdmiCEC/plugin.pyc")) and (fileExists("/dev/cec0") or fileExists("/dev/hdmi_cec") or fileExists("/dev/misc/hdmi_cec0"))
 SystemInfo["HasYPbPr"] = model in ("dm8000", "et5000", "et6000", "et6500", "et9000", "et9200", "et9500", "et10000", "formuler1", "mbtwinplus", "spycat", "vusolo", "vuduo", "vuduo2", "vuultimo")
 SystemInfo["HasScart"] = model in ("dm8000", "et4000", "et6500", "et8000", "et9000", "et9200", "et9500", "et10000", "formuler1", "hd1100", "hd1200", "hd1265", "hd2400", "vusolo", "vusolo2", "vuduo", "vuduo2", "vuultimo", "vuuno", "xp1000")
 SystemInfo["HasSVideo"] = model in ("dm8000")
@@ -250,7 +251,7 @@ SystemInfo["CanChangeOsdAlpha"] = access("/proc/stb/video/alpha", R_OK) and True
 SystemInfo["BootDevice"] = getBootdevice()
 SystemInfo["NimExceptionVuSolo2"] = model == "vusolo2"
 SystemInfo["NimExceptionVuDuo2"] = model == "vuduo2"
-SystemInfo["NimExceptionDMM8000"] = HardwareInfo().get_device_name() == "dm8000"
+SystemInfo["NimExceptionDMM8000"] = device_name == "dm8000"
 SystemInfo["FbcTunerPowerAlwaysOn"] = model in ("vusolo4k", "vuduo4k", "vuduo4kse", "vuultimo4k", "vuuno4k", "vuuno4kse")
 SystemInfo["HasPhysicalLoopthrough"] = ["Vuplus DVB-S NIM(AVL2108)", "GIGA DVB-S2 NIM (Internal)"]
 if model in ("et7500", "et8500"):
