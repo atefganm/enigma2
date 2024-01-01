@@ -19,7 +19,7 @@ from Tools.Multiboot import getMultibootStartupDevice, getMultibootslots  # This
 
 class BoxInformation:
 	def __init__(self, root=""):
-		boxInfoCollector = {}
+		boxInfoCollector = {"machine": "default"} #add one key to the boxInfoCollector as it always should exist to satisfy the CI test on github
 		self.boxInfoMutable = {}
 		boxInfoCollector["checksum"] = None
 		checksumcollectionstring = ""
@@ -135,7 +135,7 @@ def getRCFile(ext):
 	return filename
 
 
-model = BoxInfo.getItem("machine", default="unknown")
+model = BoxInfo.getItem("machine")
 
 BoxInfo.setItem("RCImage", getRCFile("png"))
 BoxInfo.setItem("RCMapping", getRCFile("xml"))
