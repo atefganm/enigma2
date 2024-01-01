@@ -53,7 +53,7 @@ class BoxInformation:
 			return True
 		else:
 			try:
-				return eval(value)
+				return eval(value, {"__builtins__": {}}, {})
 			except:
 				return value
 
