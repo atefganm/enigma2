@@ -1,12 +1,11 @@
 from os import R_OK, access, listdir, walk
 from os.path import exists as fileAccess, isdir, isfile, join as pathjoin
 from re import findall
-from hashlib import md5
 from subprocess import PIPE, Popen
-from types import MappingProxyType
-from ast import literal_eval
+
 from enigma import Misc_Options, eDVBCIInterfaces, eDVBResourceManager, eGetEnigmaDebugLvl
 from Tools.Directories import SCOPE_PLUGINS, SCOPE_SKIN, fileCheck, fileContains, fileReadLine, fileReadLines, resolveFilename, fileExists, fileHas, fileReadLine, pathExists
+from Tools.HardwareInfo import HardwareInfo
 
 MODULE_NAME = __name__.split(".")[-1]
 ENIGMA_KERNEL_MODULE = "enigma.ko"
@@ -14,88 +13,140 @@ PROC_PATH = "/proc/enigma"
 
 SystemInfo = {}
 
-from Tools.Multiboot import getMultibootStartupDevice, getMultibootslots  # This import needs to be here to avoid a SystemInfo load loop!
-
-
-class BoxInformation:
-	def __init__(self, root=""):
-		boxInfoCollector = {"machine": "default"} #add one key to the boxInfoCollector as it always should exist to satisfy the CI test on github
-		self.boxInfoMutable = {}
-		boxInfoCollector["checksum"] = None
-		checksumcollectionstring = ""
-		file = root + "/usr/lib/enigma.info"
-		if fileExists(file):
-			for line in open(file, 'r').readlines():
-				if line.startswith("checksum="):
-					boxInfoCollector["checksum"] = md5(bytearray(checksumcollectionstring, "UTF-8", errors="ignore")).hexdigest() == line.strip().split('=')[1]
-					break
-				checksumcollectionstring += line
+class BoxInformation:  # To maintain data integrity class variables should not be accessed from outside of this class!
+	def __init__(self):
+		self.enigmaList = []
+		self.enigmaInfo = {}
+		self.immutableList = []
+		self.boxInfo = {}
+		self.procList = [file for file in listdir(PROC_PATH) if isfile(pathjoin(PROC_PATH, file))] if isdir(PROC_PATH) else []
+		lines = fileReadLines("/etc/enigma.conf", source=MODULE_NAME)
+		if lines:
+			for line in lines:
 				if line.startswith("#") or line.strip() == "":
 					continue
-				if '=' in line:
-					item, value = [x.strip() for x in line.split('=')]
-					boxInfoCollector[item] = self.processValue(value)
-			if boxInfoCollector["checksum"]:
-				print("[SystemInfo] Enigma information file data loaded into BoxInfo.")
-			else:
-				print("[SystemInfo] Enigma information file data loaded, but checksum failed.")
+				if "=" in line:
+					item, value = [x.strip() for x in line.split("=", 1)]
+					if item:
+						self.enigmaList.append(item)
+						self.enigmaInfo[item] = self.processValue(value)
+			print("[SystemInfo] Enigma config override file available and data loaded into BoxInfo.")
+		for dirpath, dirnames, filenames in walk("/lib/modules"):
+			if ENIGMA_KERNEL_MODULE in filenames:
+				modulePath = pathjoin(dirpath, ENIGMA_KERNEL_MODULE)
+				self.boxInfo["enigmamodule"] = modulePath
+				self.immutableList.append("enigmamodule")
+				break
 		else:
-			print("[SystemInfo] ERROR: %s is not available!  The system is unlikely to boot or operate correctly." % file)
-		self.boxInfo = MappingProxyType(boxInfoCollector)
+			modulePath = ""
+		# As the /proc values are static we can save time by using cached
+		# values loaded here.  If the values become dynamic this code
+		# should be disabled and the dynamic code below enabled.
+		if self.procList:
+			for item in self.procList:
+				self.boxInfo[item] = self.processValue(fileReadLine(pathjoin(PROC_PATH, item), source=MODULE_NAME))
+				self.immutableList.append(item)
+			print("[SystemInfo] Enigma kernel module available and data loaded into BoxInfo.")
+		else:
+			process = Popen(("/sbin/modinfo", "-d", modulePath), stdout=PIPE, stderr=PIPE, universal_newlines=True)
+			stdout, stderr = process.communicate()
+			if process.returncode == 0:
+				for line in stdout.split("\n"):
+					if "=" in line:
+						item, value = line.split("=", 1)
+						if item:
+							self.procList.append(item)
+							self.boxInfo[item] = self.processValue(value)
+							self.immutableList.append(item)
+				print("[SystemInfo] Enigma kernel module not available but modinfo data loaded into BoxInfo!")
+			else:
+				print("[SystemInfo] Error: Unable to load Enigma kernel module data!  (Error %d: %s)" % (process.returncode, stderr.strip()))
+		self.enigmaList = sorted(self.enigmaList)
+		self.procList = sorted(self.procList)
 
 	def processValue(self, value):
-		try:
-			return literal_eval(value)
-		except:
-			return value
+		if value is None:
+			pass
+		elif value.startswith("\"") or value.startswith("'") and value.endswith(value[0]):
+			value = value[1:-1]
+		elif value.startswith("(") and value.endswith(")"):
+			data = []
+			for item in [x.strip() for x in value[1:-1].split(",")]:
+				data.append(self.processValue(item))
+			value = tuple(data)
+		elif value.startswith("[") and value.endswith("]"):
+			data = []
+			for item in [x.strip() for x in value[1:-1].split(",")]:
+				data.append(self.processValue(item))
+			value = list(data)
+		elif value.upper() == "NONE":
+			value = None
+		elif value.upper() in ("FALSE", "NO", "OFF", "DISABLED"):
+			value = False
+		elif value.upper() in ("TRUE", "YES", "ON", "ENABLED"):
+			value = True
+		elif value.isdigit() or (value[0:1] == "-" and value[1:].isdigit()):
+			value = int(value)
+		elif value.startswith("0x") or value.startswith("0X"):
+			value = int(value, 16)
+		elif value.startswith("0o") or value.startswith("0O"):
+			value = int(value, 8)
+		elif value.startswith("0b") or value.startswith("0B"):
+			value = int(value, 2)
+		else:
+			try:
+				value = float(value)
+			except ValueError:
+				pass
+		return value
 
-	def getEnigmaInfoList(self):
-		return sorted(self.boxInfo.keys())
+	def getEnigmaList(self):
+		return self.enigmaList
 
-	def getEnigmaConfList(self):  # not used by us
-		return []
+	def getProcList(self):
+		return self.procList
 
 	def getItemsList(self):
-		return sorted({**self.boxInfo, **self.boxInfoMutable}.keys())
+		return sorted(list(self.boxInfo.keys()))
 
 	def getItem(self, item, default=None):
-		if item in self.boxInfo:
-			return self.boxInfo[item]
-		elif item in self.boxInfoMutable:
-			return self.boxInfoMutable[item]
+		if item in self.enigmaList:
+			value = self.enigmaInfo[item]
+		# As the /proc values are static we can save time by uusing cached
+		# values loaded above.  If the values become dynamic this code
+		# should be enabled.
+		# elif item in self.procList:
+		# 	value = self.processValue(fileReadLine(pathjoin(PROC_PATH, item), source=MODULE_NAME))
+		elif item in self.boxInfo:
+			value = self.boxInfo[item]
 		elif item in SystemInfo:
-			return SystemInfo[item]
-		return default
+			value = SystemInfo[item]
+		else:
+			value = default
+		return value
 
-	def setItem(self, item, value, immutable=False, forceOverride=False):
-		print('*', item, value, immutable, forceOverride)
-		if item in self.boxInfo and not forceOverride:
+	def setItem(self, item, value, immutable=False):
+		if item in self.immutableList or item in self.procList:
 			print("[BoxInfo] Error: Item '%s' is immutable and can not be %s!" % (item, "changed" if item in self.boxInfo else "added"))
 			return False
 		if immutable:
-			boxInfoCollector = dict(self.boxInfo)
-			boxInfoCollector[item] = value
-			self.boxInfo = MappingProxyType(boxInfoCollector)
-		else:
-			self.boxInfoMutable[item] = value
+			self.immutableList.append(item)
+		self.boxInfo[item] = value
+		SystemInfo[item] = value
 		return True
 
-	def deleteItem(self, item, forceOverride=False):
-		if item in self.boxInfo:
-			if forceOverride:
-				boxInfoCollector = dict(self.boxInfo)
-				del boxInfoCollector[item]
-				self.boxInfo = MappingProxyType(boxInfoCollector)
-				return True
-			else:
-				print("[BoxInfo] Error: Item '%s' is immutable and can not be deleted!" % item)
-		if item in self.boxInfoMutable:
-			del self.boxInfoMutable[item]
+	def deleteItem(self, item):
+		if item in self.immutableListor or item in self.procList:
+			print("[BoxInfo] Error: Item '%s' is immutable and can not be deleted!" % item)
+		elif item in self.boxInfo:
+			del self.boxInfo[item]
 			return True
+		return False
 
 
 BoxInfo = BoxInformation()
 
+from Tools.Multiboot import getMultibootStartupDevice, getMultibootslots  # This import needs to be here to avoid a SystemInfo load loop!
 
 # Parse the boot commandline.
 #
@@ -135,7 +186,7 @@ def getRCFile(ext):
 	return filename
 
 
-model = BoxInfo.getItem("machine")
+model = HardwareInfo().get_device_model()
 
 BoxInfo.setItem("RCImage", getRCFile("png"))
 BoxInfo.setItem("RCMapping", getRCFile("xml"))
@@ -159,7 +210,7 @@ SystemInfo["LCDshow_symbols"] = (model.startswith("et9") or model in ("hd51", "v
 SystemInfo["LCDsymbol_hdd"] = model in ("hd51", "vs1500") and fileCheck("/proc/stb/lcd/symbol_hdd")
 SystemInfo["CanUse3DModeChoices"] = fileExists("/proc/stb/fb/3dmode_choices") and True or False
 SystemInfo["FrontpanelDisplayGrayscale"] = fileExists("/dev/dbox/oled0")
-SystemInfo["DeepstandbySupport"] = model != "dm800"
+SystemInfo["DeepstandbySupport"] = HardwareInfo().get_device_name() != "dm800"
 SystemInfo["OLDE2API"] = model in ("dm800")
 SystemInfo["Fan"] = fileCheck("/proc/stb/fp/fan")
 SystemInfo["FanPWM"] = SystemInfo["Fan"] and fileCheck("/proc/stb/fp/fan_pwm")
@@ -207,10 +258,10 @@ SystemInfo["HasHDMIpreemphasis"] = fileCheck("/proc/stb/hdmi/preemphasis")
 SystemInfo["HasColorimetry"] = fileCheck("/proc/stb/video/hdmi_colorimetry")
 SystemInfo["HasHdrType"] = fileCheck("/proc/stb/video/hdmi_hdrtype")
 SystemInfo["HasScaler_sharpness"] = pathExists("/proc/stb/vmpeg/0/pep_scaler_sharpness")
-SystemInfo["HasHDMIin"] = BoxInfo.getItem("dmifhdin") or BoxInfo.getItem("hdmihdin")
+SystemInfo["HasHDMIin"] = model in ('dm7080', 'dm820', 'vuduo4k', 'vuduo4kse', 'vuultimo4k', 'vuuno4kse', 'gbquad4k', 'hd2400', 'et10000')
 SystemInfo["HasHDMIinFHD"] = model in ('dm900', 'dm920', 'dreamone', 'dreamtwo')
 SystemInfo["HDMIin"] = SystemInfo["HasHDMIin"] or SystemInfo["HasHDMIinFHD"]
-SystemInfo["HasHDMI-CEC"] = BoxInfo.getItem("hdmi") and fileExists(resolveFilename(SCOPE_PLUGINS, "SystemPlugins/HdmiCEC/plugin.pyc")) and (fileExists("/dev/cec0") or fileExists("/dev/hdmi_cec") or fileExists("/dev/misc/hdmi_cec0"))
+SystemInfo["HasHDMI-CEC"] = HardwareInfo().has_hdmi() and fileExists(resolveFilename(SCOPE_PLUGINS, "SystemPlugins/HdmiCEC/plugin.pyc")) and (fileExists("/dev/cec0") or fileExists("/dev/hdmi_cec") or fileExists("/dev/misc/hdmi_cec0"))
 SystemInfo["HasYPbPr"] = model in ("dm8000", "et5000", "et6000", "et6500", "et9000", "et9200", "et9500", "et10000", "formuler1", "mbtwinplus", "spycat", "vusolo", "vuduo", "vuduo2", "vuultimo")
 SystemInfo["HasScart"] = model in ("dm8000", "et4000", "et6500", "et8000", "et9000", "et9200", "et9500", "et10000", "formuler1", "hd1100", "hd1200", "hd1265", "hd2400", "vusolo", "vusolo2", "vuduo", "vuduo2", "vuultimo", "vuuno", "xp1000")
 SystemInfo["HasSVideo"] = model in ("dm8000")
@@ -249,7 +300,7 @@ SystemInfo["CanChangeOsdAlpha"] = access("/proc/stb/video/alpha", R_OK) and True
 SystemInfo["BootDevice"] = getBootdevice()
 SystemInfo["NimExceptionVuSolo2"] = model == "vusolo2"
 SystemInfo["NimExceptionVuDuo2"] = model == "vuduo2"
-SystemInfo["NimExceptionDMM8000"] = model == "dm8000"
+SystemInfo["NimExceptionDMM8000"] = HardwareInfo().get_device_name() == "dm8000"
 SystemInfo["FbcTunerPowerAlwaysOn"] = model in ("vusolo4k", "vuduo4k", "vuduo4kse", "vuultimo4k", "vuuno4k", "vuuno4kse")
 SystemInfo["HasPhysicalLoopthrough"] = ["Vuplus DVB-S NIM(AVL2108)", "GIGA DVB-S2 NIM (Internal)"]
 if model in ("et7500", "et8500"):
