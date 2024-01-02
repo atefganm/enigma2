@@ -8,6 +8,7 @@ from Components.config import config
 from Tools.Transponder import ConvertToHumanReadable
 from Tools.GetEcmInfo import GetEcmInfo
 from Components.Converter.Poll import Poll
+from Tools.Directories import pathExists
 from skin import parameters
 from os.path import isfile
 
