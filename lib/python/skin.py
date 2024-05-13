@@ -673,7 +673,7 @@ class AttributeParser:
 
 	def borderWidth(self, value):
 		self.guiObject.setBorderWidth(parseScale(value))
-		
+
 	def cornerRadius(self, value):
 		radius, edgeValue = parseRadius(value)
 		self.guiObject.setCornerRadius(radius, edgeValue)
